@@ -5,7 +5,7 @@ import { requireAuth } from '../utils/requireAuth';
 
 const IntroPage = lazy(() => import('../pages/intro/IntroPage'));
 const MainPage = lazy(() => import('../pages/main/MainPage'));
-const WritePage = lazy(() => import('../pages/write/writePage'));
+const WritePage = lazy(() => import('../pages/write/WritePage'));
 const AboutPage = lazy(() => import('../pages/about/AboutPage'));
 const LoadingPage = lazy(() => import('../pages/loading/LoadingPage'));
 const LoginPage = lazy(() => import('../pages/login/LoginPage'));
@@ -13,7 +13,7 @@ const SignupPage = lazy(() => import('../pages/signUp/SignupPage'));
 const AdminPendingPage = lazy(() => import('../pages/admin/AdminPendingPage'));
 const RoadmapPage = lazy(() => import('../pages/roadmap/RoadmapPage'));
 const MetaAnalysisPage = lazy(() => import('../pages/meta/MetaAnalysisPage'));
-const MyPage = lazy(() => import('../pages/profilepage/myPage'));
+const MyPage = lazy(() => import('../pages/profilepage/MyPage'));
 
 //임시) 백업페이지
 const BackupDownloadPage = lazy(() => import('../pages/backup/BackupDownloadPage'));
