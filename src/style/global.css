@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* global.css */
+body {
+    background-color: #FAF3E0;
+    background-image: url('/images/paper-texture.png');
+    background-size: auto;
+    /* background-repeat: repeat; */
+    /* background-attachment: fixed; */
+    /* 종이질감 오버레이 */
+    background-blend-mode: multiply;
+}
