@@ -6,10 +6,11 @@ export const requireAuth = async () => {
     try {
         return await getMe();
     } catch (err) {
-        // 401(미인증/세션 만료)은 조용히 로그인으로, 그 외(서버 다운 등)는 알린 뒤 로그인으로
-        if (err?.status !== 401) {
-            alert(err?.message);
+        // 401만 "로그인 안 됨" — 조용히 로그인으로
+        if (err?.status === 401) {
+            return redirect("/login");
         }
-        return redirect("/login");
+        // 그 외(서버 장애, 네트워크)는 로그인 여부를 판단할 수 없음 → 라우트 errorElement가 처리
+        throw err;
     }
 };

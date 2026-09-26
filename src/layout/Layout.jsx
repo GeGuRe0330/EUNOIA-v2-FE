@@ -14,8 +14,13 @@ const Layout = () => {
     const handleLogout = async () => {
         try {
             await logout();
-        } catch {
-            // 로그아웃 요청이 실패해도 로그인 화면으로 보냄
+        } catch (err) {
+            // 401은 로그인 안 한 상태의 CSRF 거부 — 끝낼 세션이 없으므로 로그인 화면으로
+            // 그 외(네트워크/403/5xx)는 서버 세션이 살아 있을 수 있으므로 현재 화면에 머묾
+            if (err?.status !== 401) {
+                alert("로그아웃에 실패했어요. 잠시 후 다시 시도해 주세요.");
+                return;
+            }
         }
         navigate("/login");
     };

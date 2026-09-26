@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { signUp } from '../../api/authApi';
+import { toFieldErrorMap, toSignupPayload, validateSignup } from './signupForm';
 
 // 입력칸 아래 필드별 오류 문구
 const FieldError = ({ message }) =>
@@ -32,46 +33,26 @@ const SignupPage = () => {
 
     const handleChange = (e) => updateField(e.target.name, e.target.value);
 
-    // 입력 검증 문구는 프론트 담당(OVERVIEW §5.2) — 이메일 형식은 서버 기준에 맡김
-    const validate = () => {
-        const errors = {};
-        if (!form.nickname.trim()) errors.nickname = '닉네임(표시 이름)을 입력해 주세요.';
-        if (!form.email.trim()) errors.email = '이메일을 입력해 주세요.';
-        if (!form.password) errors.password = '비밀번호를 입력해 주세요.';
-        else if (form.password.length < 4) errors.password = '비밀번호는 4자 이상이면 좋아요.';
-        if (form.password !== form.passwordConfirm) errors.passwordConfirm = '비밀번호 확인이 일치하지 않아요.';
-        if (!form.gender) errors.gender = '성별을 선택해 주세요.';
-        if (form.age === '') errors.age = '나이를 입력해 주세요.';
-        else if (!Number.isInteger(Number(form.age)) || Number(form.age) < 0) errors.age = '나이는 0 이상의 정수로 입력해 주세요.';
-        return errors;
-    };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setErrorMsg('');
         setSuccessMsg('');
 
-        const errors = validate();
+        const errors = validateSignup(form);
         setFieldErrors(errors);
         if (Object.keys(errors).length > 0) return;
 
         setIsLoading(true);
 
         try {
-            const { passwordConfirm: _passwordConfirm, ...rest } = form;
-            // 빈 값은 ""가 아니라 null로 — ""는 서버 JSON 변환 단계에서 실패함
-            await signUp({
-                ...rest,
-                age: form.age === '' ? null : Number(form.age),
-                gender: form.gender || null,
-            });
+            await signUp(toSignupPayload(form));
 
             setSuccessMsg('가입 신청이 완료됐어요. 관리자 승인 후 로그인할 수 있어요!');
             setTimeout(() => navigate('/login'), 2600);
         } catch (err) {
             // 서버 fieldErrors는 해당 입력칸 아래에, 그 외 오류는 상단 박스에
             if (err.fieldErrors.length > 0) {
-                setFieldErrors(Object.fromEntries(err.fieldErrors.map((fe) => [fe.field, fe.message])));
+                setFieldErrors(toFieldErrorMap(err.fieldErrors));
             } else {
                 setErrorMsg(err.message);
             }

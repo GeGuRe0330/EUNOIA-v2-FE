@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import Layout from '../layout/Layout';
 import { requireAuth } from '../utils/requireAuth';
+import RouteErrorPage from '../pages/error/RouteErrorPage';
 
 const IntroPage = lazy(() => import('../pages/intro/IntroPage'));
 const MainPage = lazy(() => import('../pages/main/MainPage'));
@@ -49,6 +50,7 @@ const root = createBrowserRouter([
         path: '/',
         element: <Layout />,
         loader: requireAuth,
+        errorElement: <RouteErrorPage />,
         children: [
             {
                 path: 'dashboard',
