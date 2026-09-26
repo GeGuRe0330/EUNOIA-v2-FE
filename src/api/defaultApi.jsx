@@ -16,3 +16,7 @@ const attachInterceptors = (client) => {
 };
 
 attachInterceptors(api);
+
+// v2 ApiResponse 봉투({ success, data, error })에서 data만 꺼냄
+// 실패는 에러 status로 이미 reject되고, data: null은 정상 응답(예: 분석 0건)이라 따로 검사하지 않음
+export const unwrap = (res) => res.data.data;
