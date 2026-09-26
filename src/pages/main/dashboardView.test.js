@@ -30,7 +30,12 @@ describe("resolveDashboardView", () => {
         expect(resolveDashboardView(latest)).toEqual({ name: "ready", analysis: latest });
     });
 
-    it("FAILED가 아니면(status 없음 포함) 기존 카드 대상으로 본다", () => {
-        expect(resolveDashboardView({ entryId: 9 }).name).toBe("ready");
+    it.each([
+        ["status 없음", { entryId: 9 }],
+        ["PENDING(계약에 없는 값)", { entryId: 9, status: "PENDING" }],
+        ["SOMETHING_NEW(새로 생긴 값)", { entryId: 9, status: "SOMETHING_NEW" }],
+        ["소문자 success", { entryId: 9, status: "success" }],
+    ])("알려진 상태만 인정한다 — %s는 카드로 가지 않고 invalid", (_, latest) => {
+        expect(resolveDashboardView(latest)).toEqual({ name: "invalid" });
     });
 });

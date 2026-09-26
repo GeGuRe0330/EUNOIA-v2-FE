@@ -42,6 +42,11 @@ const MainPage = () => {
 
     const view = resolveDashboardView(data);
 
+    // 계약에 없는 status — 카드를 그리면 null 필드 때문에 2차 오류가 나므로 안내로 대신함
+    if (view.name === "invalid") {
+        return <div className="text-red-500 text-center">분석 결과를 불러오지 못했어요.</div>;
+    }
+
     // 분석이 하나도 없음(신규 회원 등) — 에러가 아닌 정상 상황, 레거시 화면 그대로
     if (view.name === "empty") {
         return (

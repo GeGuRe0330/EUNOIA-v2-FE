@@ -149,7 +149,8 @@ const AnalysisProgress = ({ entryId }) => {
 const LoadingPage = () => {
     const entryId = useLocation().state?.entryId;
 
-    // 새로고침하면 location.state가 사라짐 — 분석은 서버에서 계속 진행되므로 조용히 대시보드로
+    // entryId state 없이 들어온 경우(주소 직접 입력·북마크·새 탭) — 이어서 보여줄 분석 정보가 없으므로 조용히 대시보드로.
+    // (새로고침은 history state가 유지돼 여기로 오지 않고 폴링이 재개됨. 분석은 서버에서 계속 진행되므로 대시보드에서 확인 가능)
     if (!entryId) return <Navigate to="/dashboard" replace />;
 
     return <AnalysisProgress entryId={entryId} />;
