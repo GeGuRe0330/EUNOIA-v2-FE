@@ -3,6 +3,10 @@ import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { signUp } from '../../api/authApi';
 
+// 입력칸 아래 필드별 오류 문구
+const FieldError = ({ message }) =>
+    message ? <p className="mt-1 text-xs text-red-600">{message}</p> : null;
+
 const SignupPage = () => {
     const navigate = useNavigate();
 
@@ -16,21 +20,30 @@ const SignupPage = () => {
     });
 
     const [isLoading, setIsLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState('');
+    const [errorMsg, setErrorMsg] = useState(''); // 필드가 아닌 오류(중복 이메일, 네트워크 등)
+    const [fieldErrors, setFieldErrors] = useState({}); // { 필드명: 문구 } — 클라이언트 검증 + 서버 fieldErrors
     const [successMsg, setSuccessMsg] = useState('');
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+    // 값을 바꾸면 해당 필드 오류는 지움
+    const updateField = (name, value) => {
         setForm((prev) => ({ ...prev, [name]: value }));
+        setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     };
 
+    const handleChange = (e) => updateField(e.target.name, e.target.value);
+
+    // 입력 검증 문구는 프론트 담당(OVERVIEW §5.2) — 이메일 형식은 서버 기준에 맡김
     const validate = () => {
-        if (!form.nickname.trim()) return '닉네임(표시 이름)을 입력해주세요.';
-        if (!form.password) return '비밀번호를 입력해주세요.';
-        if (form.password.length < 4) return '비밀번호는 4자 이상이면 좋아요.';
-        if (form.password !== form.passwordConfirm) return '비밀번호 확인이 일치하지 않아요.';
-        if (!form.email.trim()) return '이메일을 입력해주세요.';
-        return '';
+        const errors = {};
+        if (!form.nickname.trim()) errors.nickname = '닉네임(표시 이름)을 입력해 주세요.';
+        if (!form.email.trim()) errors.email = '이메일을 입력해 주세요.';
+        if (!form.password) errors.password = '비밀번호를 입력해 주세요.';
+        else if (form.password.length < 4) errors.password = '비밀번호는 4자 이상이면 좋아요.';
+        if (form.password !== form.passwordConfirm) errors.passwordConfirm = '비밀번호 확인이 일치하지 않아요.';
+        if (!form.gender) errors.gender = '성별을 선택해 주세요.';
+        if (form.age === '') errors.age = '나이를 입력해 주세요.';
+        else if (!Number.isInteger(Number(form.age)) || Number(form.age) < 0) errors.age = '나이는 0 이상의 정수로 입력해 주세요.';
+        return errors;
     };
 
     const handleSubmit = async (e) => {
@@ -38,23 +51,30 @@ const SignupPage = () => {
         setErrorMsg('');
         setSuccessMsg('');
 
-
-        const v = validate();
-        if (v) {
-            setErrorMsg(v);
-            return;
-        }
+        const errors = validate();
+        setFieldErrors(errors);
+        if (Object.keys(errors).length > 0) return;
 
         setIsLoading(true);
 
         try {
-            const { passwordConfirm, ...payload } = form;
-            await signUp(payload);
+            const { passwordConfirm: _passwordConfirm, ...rest } = form;
+            // 빈 값은 ""가 아니라 null로 — ""는 서버 JSON 변환 단계에서 실패함
+            await signUp({
+                ...rest,
+                age: form.age === '' ? null : Number(form.age),
+                gender: form.gender || null,
+            });
 
             setSuccessMsg('가입 신청이 완료됐어요. 관리자 승인 후 로그인할 수 있어요!');
             setTimeout(() => navigate('/login'), 2600);
         } catch (err) {
-            setErrorMsg(err?.message || '가입신청에 실패했어요...');
+            // 서버 fieldErrors는 해당 입력칸 아래에, 그 외 오류는 상단 박스에
+            if (err.fieldErrors.length > 0) {
+                setFieldErrors(Object.fromEntries(err.fieldErrors.map((fe) => [fe.field, fe.message])));
+            } else {
+                setErrorMsg(err.message);
+            }
         } finally {
             setIsLoading(false);
         }
@@ -97,6 +117,7 @@ const SignupPage = () => {
                                 className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
                                 autoComplete="nickname"
                             />
+                            <FieldError message={fieldErrors.nickname} />
                         </div>
 
                         {/* 이메일 */}
@@ -110,6 +131,7 @@ const SignupPage = () => {
                                 className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
                                 autoComplete="email"
                             />
+                            <FieldError message={fieldErrors.email} />
                         </div>
 
                         {/* 비밀번호 */}
@@ -124,6 +146,7 @@ const SignupPage = () => {
                                 className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
                                 autoComplete="new-password"
                             />
+                            <FieldError message={fieldErrors.password} />
                         </div>
 
                         {/* 비밀번호 확인 */}
@@ -138,6 +161,7 @@ const SignupPage = () => {
                                 className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
                                 autoComplete="new-password"
                             />
+                            <FieldError message={fieldErrors.passwordConfirm} />
                         </div>
                         {/* 성별 선택 버튼 */}
                         <div>
@@ -152,7 +176,7 @@ const SignupPage = () => {
                                     <button
                                         key={g.value}
                                         type="button"
-                                        onClick={() => setForm((prev) => ({ ...prev, gender: g.value }))}
+                                        onClick={() => updateField('gender', g.value)}
                                         className={`flex-1 rounded-xl px-4 py-2 text-sm transition
                                           ${form.gender === g.value
                                                 ? 'bg-black text-white'
@@ -164,6 +188,7 @@ const SignupPage = () => {
                                     </button>
                                 ))}
                             </div>
+                            <FieldError message={fieldErrors.gender} />
                         </div>
 
                         {/* 나이 입력창 */}
@@ -173,13 +198,12 @@ const SignupPage = () => {
                                 type="number"
                                 name="age"
                                 value={form.age}
-                                onChange={(e) =>
-                                    setForm((prev) => ({ ...prev, age: e.target.value }))
-                                }
+                                onChange={handleChange}
                                 placeholder="숫자만입력해주세요"
                                 className="w-full rounded-xl border border-black/10 bg-white/80 px-4 py-3 outline-none focus:ring-2 focus:ring-black/10"
                                 min={0}
                             />
+                            <FieldError message={fieldErrors.age} />
                         </div>
 
 
@@ -191,7 +215,7 @@ const SignupPage = () => {
                             </div>
                         )}
 
-                        ️            {successMsg && (
+                        {successMsg && (
                             <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
                                 {successMsg}
                             </div>
