@@ -61,6 +61,8 @@ const PendingMemberList = () => {
         } catch (err) {
             setApprovedNotice(null);
             handleApiError(err);
+            // 409: 이미 승인된 회원(다른 관리자/탭에서 처리) — 목록이 낡았으니 다시 불러옴
+            if (err?.status === 409) fetchPending();
         } finally {
             setActionLoadingId(null);
         }
@@ -114,12 +116,14 @@ const PendingMemberList = () => {
                     </div>
                 </div>
 
-                {/* 승인 안내 */}
-                {approvedNotice && (
-                    <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
-                        {approvedNotice.text}
-                    </div>
-                )}
+                {/* 승인 안내 — live region은 항상 렌더링해 둬야 스크린리더가 새로 나타나는 안내를 읽음 */}
+                <div role="status" aria-live="polite">
+                    {approvedNotice && (
+                        <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
+                            {approvedNotice.text}
+                        </div>
+                    )}
+                </div>
 
                 {/* 로딩 */}
                 {isLoading ? (
