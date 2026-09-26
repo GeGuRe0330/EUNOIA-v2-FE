@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { login } from '../../api/authApi';
 
 
 const LoginPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     // 폼 상태
     const [form, setForm] = useState({
@@ -15,7 +16,8 @@ const LoginPage = () => {
 
     // UI 상태
     const [isLoading, setIsLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState(''); // 로그인 실패 메시지 자리
+    // 로그인 실패 메시지 자리 — 세션 만료로 넘어온 경우(useApiError) 그 안내로 시작
+    const [errorMsg, setErrorMsg] = useState(location.state?.message ?? '');
 
     const handleChange = (e) => {
         const { name, value } = e.target;

@@ -48,10 +48,10 @@ const root = createBrowserRouter([
     {
         path: '/',
         element: <Layout />,
+        loader: requireAuth,
         children: [
             {
                 path: 'dashboard',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <MainPage />
@@ -60,7 +60,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'write',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <WritePage />
@@ -69,7 +68,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'about',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <AboutPage />
@@ -78,7 +76,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'roadmap',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <RoadmapPage />
@@ -87,21 +84,18 @@ const root = createBrowserRouter([
             },
             {
                 path: 'loading',
-                loader: requireAuth,
                 element: (
                     <LoadingPage />
                 )
             },
             {
                 path: 'MetaAnalysisPage',
-                loader: requireAuth,
                 element: (
                     <MetaAnalysisPage />
                 )
             },
             {
                 path: 'myPage',
-                loader: requireAuth,
                 element: (
                     <MyPage />
                 )
@@ -110,7 +104,6 @@ const root = createBrowserRouter([
             // Admin
             {
                 path: 'pendinglist',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <AdminPendingPage />

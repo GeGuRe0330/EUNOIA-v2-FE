@@ -1,37 +1,23 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLoaderData, useNavigate } from "react-router-dom";
 import SidebarNav from "../components/SidebarNav";
-import { useEffect, useState } from "react";
-import { getMe, logout } from "../api/authApi";
-import { useApiError } from "../hooks/useApiError";
+import { useState } from "react";
+import { logout } from "../api/authApi";
 import MobileHeader from "../components/mobile/MobileHeader";
 import MobileDrawer from "../components/mobile/MobileDrawer";
 
 const Layout = () => {
-    const [me, setMe] = useState(null);
+    // 라우트 loader(requireAuth)가 세션 확인과 함께 반환한 내 정보
+    const me = useLoaderData();
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const { handleApiError } = useApiError();
     const navigate = useNavigate();
-
-    useEffect(() => {
-        (async () => {
-            try {
-                setMe(await getMe());
-            } catch (e) {
-                setMe(null);
-                handleApiError(e);
-            }
-        })();
-    }, [handleApiError]);
 
     const handleLogout = async () => {
         try {
             await logout();
-            setMe(null);
-            navigate("/login");
-        } catch (e) {
-            setMe(null);
-            navigate("/login");
+        } catch {
+            // 로그아웃 요청이 실패해도 로그인 화면으로 보냄
         }
+        navigate("/login");
     };
     return (
         <div className="flex min-h-screen">
