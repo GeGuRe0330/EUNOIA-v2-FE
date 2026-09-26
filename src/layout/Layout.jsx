@@ -1,39 +1,28 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLoaderData, useNavigate } from "react-router-dom";
 import SidebarNav from "../components/SidebarNav";
-import { useEffect, useState } from "react";
-import { getMe } from "../api/authApi";
-import { api } from "../api/defaultApi";
-import { useApiError } from "../hooks/useApiError";
+import { useState } from "react";
+import { logout } from "../api/authApi";
 import MobileHeader from "../components/mobile/MobileHeader";
 import MobileDrawer from "../components/mobile/MobileDrawer";
 
 const Layout = () => {
-    const [me, setMe] = useState(null);
+    // 라우트 loader(requireAuth)가 세션 확인과 함께 반환한 내 정보
+    const me = useLoaderData();
     const [drawerOpen, setDrawerOpen] = useState(false);
-    const { handleApiError } = useApiError();
     const navigate = useNavigate();
-
-    useEffect(() => {
-        (async () => {
-            try {
-                const data = await getMe();
-                setMe(data.data);
-            } catch (e) {
-                setMe(null);
-                handleApiError(e);
-            }
-        })();
-    }, [handleApiError]);
 
     const handleLogout = async () => {
         try {
-            await api.post("/auth/logout");
-            setMe(null);
-            navigate("/login");
-        } catch (e) {
-            setMe(null);
-            navigate("/login");
+            await logout();
+        } catch (err) {
+            // 401은 로그인 안 한 상태의 CSRF 거부 — 끝낼 세션이 없으므로 로그인 화면으로
+            // 그 외(네트워크/403/5xx)는 서버 세션이 살아 있을 수 있으므로 현재 화면에 머묾
+            if (err?.status !== 401) {
+                alert("로그아웃에 실패했어요. 잠시 후 다시 시도해 주세요.");
+                return;
+            }
         }
+        navigate("/login");
     };
     return (
         <div className="flex min-h-screen">

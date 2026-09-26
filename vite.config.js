@@ -9,4 +9,8 @@ export default defineConfig({
       "/api": { target: "http://localhost:8080", changeOrigin: true },
     },
   },
+  test: {
+    // document.cookie 등 브라우저 API가 필요한 테스트(CSRF 인터셉터)를 위해 jsdom
+    environment: "jsdom",
+  },
 });

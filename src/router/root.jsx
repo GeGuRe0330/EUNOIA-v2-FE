@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import Layout from '../layout/Layout';
 import { requireAuth } from '../utils/requireAuth';
+import RouteErrorPage from '../pages/error/RouteErrorPage';
 
 const IntroPage = lazy(() => import('../pages/intro/IntroPage'));
 const MainPage = lazy(() => import('../pages/main/MainPage'));
@@ -48,10 +49,11 @@ const root = createBrowserRouter([
     {
         path: '/',
         element: <Layout />,
+        loader: requireAuth,
+        errorElement: <RouteErrorPage />,
         children: [
             {
                 path: 'dashboard',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <MainPage />
@@ -60,7 +62,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'write',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <WritePage />
@@ -69,7 +70,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'about',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <AboutPage />
@@ -78,7 +78,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'roadmap',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <RoadmapPage />
@@ -87,21 +86,18 @@ const root = createBrowserRouter([
             },
             {
                 path: 'loading',
-                loader: requireAuth,
                 element: (
                     <LoadingPage />
                 )
             },
             {
                 path: 'MetaAnalysisPage',
-                loader: requireAuth,
                 element: (
                     <MetaAnalysisPage />
                 )
             },
             {
                 path: 'myPage',
-                loader: requireAuth,
                 element: (
                     <MyPage />
                 )
@@ -110,7 +106,6 @@ const root = createBrowserRouter([
             // Admin
             {
                 path: 'pendinglist',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <AdminPendingPage />
