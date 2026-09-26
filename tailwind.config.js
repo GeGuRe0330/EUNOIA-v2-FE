@@ -23,6 +23,23 @@ export default {
         textPrimary: "#5C3A21", // 잉크 브라운 느낌
         textSecondary: "#7F5539",
       },
+      // 로딩 화면 문구 전환용 — CSS 키프레임(끝값 유지)이라 JS 애니메이션 라이브러리의 마무리 전환 때 한 프레임 깜빡이는 현상이 없음
+      keyframes: {
+        "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "fade-out": { from: { opacity: "1" }, to: { opacity: "0" } },
+        // 0 → 1 → 유지 → 0 (한 문장이 머무는 동안). 총 시간은 요소의 animationDuration으로 지정
+        "message-fade": {
+          "0%": { opacity: "0" },
+          "22%": { opacity: "1" },
+          "78%": { opacity: "1" },
+          "100%": { opacity: "0" },
+        },
+      },
+      animation: {
+        "fade-in": "fade-in 1.2s ease-out forwards",
+        "fade-out": "fade-out 0.6s ease-in forwards",
+        "message-fade": "message-fade 5.4s ease-in-out forwards",
+      },
       fontFamily: {
         sans: ['"Noto Sans KR"', '"Inter"', "sans-serif"],
         serif: ['"Cormorant Garamond"', "serif"],
