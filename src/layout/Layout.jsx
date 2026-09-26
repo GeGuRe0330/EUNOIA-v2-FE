@@ -1,8 +1,7 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import SidebarNav from "../components/SidebarNav";
 import { useEffect, useState } from "react";
-import { getMe } from "../api/authApi";
-import { api } from "../api/defaultApi";
+import { getMe, logout } from "../api/authApi";
 import { useApiError } from "../hooks/useApiError";
 import MobileHeader from "../components/mobile/MobileHeader";
 import MobileDrawer from "../components/mobile/MobileDrawer";
@@ -16,8 +15,7 @@ const Layout = () => {
     useEffect(() => {
         (async () => {
             try {
-                const data = await getMe();
-                setMe(data.data);
+                setMe(await getMe());
             } catch (e) {
                 setMe(null);
                 handleApiError(e);
@@ -27,7 +25,7 @@ const Layout = () => {
 
     const handleLogout = async () => {
         try {
-            await api.post("/auth/logout");
+            await logout();
             setMe(null);
             navigate("/login");
         } catch (e) {
