@@ -29,15 +29,7 @@ const LoginPage = () => {
 
         try {
             await login({ username: form.username, password: form.password });
-            //임시) 백업페이지로 리다이렉팅
-            if (form.username === 'minecraft@eunoia.com') {
-                navigate('/minecraft');
-            } else {
-                navigate('/dashboard');
-            }
-
-            // 기존
-            // navigate('/dashboard');
+            navigate('/dashboard');
 
         } catch (err) {
             const message = err.message || '로그인에 실패했어요. 잠시 후 다시 시도해주세요.';

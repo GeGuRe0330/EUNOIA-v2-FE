@@ -1,4 +1,4 @@
-import { api } from "./defultApi";
+import { api } from "./defaultApi";
 
 // 감정 분석 API prefix
 const ANALYSIS_PREFIX = "/analyses";
