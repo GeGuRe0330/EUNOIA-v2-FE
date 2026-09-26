@@ -47,6 +47,7 @@ const root = createBrowserRouter([
         ]
     },
     {
+        id: 'layout', // 하위 화면이 useRouteLoaderData('layout')로 내 정보(me)를 재사용
         path: '/',
         element: <Layout />,
         loader: requireAuth,
