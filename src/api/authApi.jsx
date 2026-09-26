@@ -1,4 +1,4 @@
-import { api } from "./defultApi";
+import { api } from "./defaultApi";
 
 // 로그인확인용 요청 (컨트롤러: /api/members/user/me 라고 했으니 리소스만)
 export const getMe = async () => {

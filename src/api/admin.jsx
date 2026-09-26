@@ -1,4 +1,4 @@
-import { api } from "./defultApi";
+import { api } from "./defaultApi";
 
 // PENDING 상태인 유저 리스트 조회
 export const getPendingMembers = async () => {

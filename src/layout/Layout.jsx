@@ -2,7 +2,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import SidebarNav from "../components/SidebarNav";
 import { useEffect, useState } from "react";
 import { getMe } from "../api/authApi";
-import { api } from "../api/defultApi";
+import { api } from "../api/defaultApi";
 import { useApiError } from "../hooks/useApiError";
 import MobileHeader from "../components/mobile/MobileHeader";
 import MobileDrawer from "../components/mobile/MobileDrawer";
