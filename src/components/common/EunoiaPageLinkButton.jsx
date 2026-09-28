@@ -1,11 +1,6 @@
 import { Link } from "react-router-dom";
 
-const EunoiaPageLinkButton = ({ to, message }) => {
-  return (
-    <Link
-      to={to}
-      aria-label={message}
-      className="
+const BUTTON_CLASS_NAME = `
     relative inline-flex items-center justify-center
     select-none cursor-pointer
     font-semibold tracking-wide
@@ -37,11 +32,22 @@ const EunoiaPageLinkButton = ({ to, message }) => {
     active:[transform:translate(0,12px)]
     active:before:[transform:translate3d(0,0,-16px)]
     active:before:shadow-[0_0_0_0_rgba(0,0,0,0)]
-  "
-    >
-      {message}
-    </Link>
+  `;
 
+// to가 있으면 페이지 이동(Link), onClick만 있으면 같은 디자인의 버튼(button) — 화면 이동이 아닌 동작(분석 시작 등)에도 재사용
+const EunoiaPageLinkButton = ({ to, message, onClick }) => {
+  if (to) {
+    return (
+      <Link to={to} aria-label={message} className={BUTTON_CLASS_NAME}>
+        {message}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onClick} aria-label={message} className={BUTTON_CLASS_NAME}>
+      {message}
+    </button>
   );
 };
 
