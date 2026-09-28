@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import CardMotion from "../../components/motion/CardMotion";
-import { getMetaLatestForMe, upsertMeta } from "../../api/EunoiaApi";
+import { getMetaLatest, generateMeta } from "../../api/EunoiaApi";
 
 /** -----------------------------
  *  UI: Buttons
@@ -67,7 +67,7 @@ const MetaAnalysisPage = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const result = await getMetaLatestForMe();
+                const result = await getMetaLatest();
                 setData(result);
             } catch (err) {
                 setError(err.message);
@@ -87,7 +87,7 @@ const MetaAnalysisPage = () => {
     const [step, setStep] = useState("GATE"); // "GATE" | "LOADING" | "OUTER" | "INNER" | "TRUST"
 
     // ✅ 성능: 현재 step만 렌더링할 거라 데이터는 한 번만 유지
-    const result = data?.resultJson;
+    const result = data?.content;
 
     const progressPercent = useMemo(() => {
         const required = Number(data?.requiredCount ?? 0);
@@ -97,7 +97,7 @@ const MetaAnalysisPage = () => {
     }, [data?.requiredCount, data?.currentCount]);
 
     // ✅ 이전 분석 결과 보기 노출 조건(안전하게 이중 체크)
-    const hasPreviousResult = Boolean(data?.createdAt && data?.resultJson);
+    const hasPreviousResult = Boolean(data?.createdAt && data?.content);
 
     const periodText = `${formatYMD(data?.periodStart)} ~ ${formatYMD(data?.periodEnd)}`;
 
@@ -123,7 +123,7 @@ const MetaAnalysisPage = () => {
             window.scrollTo({ top: 0, behavior: "smooth" });
 
             // ✅ 서버 분석 생성/갱신
-            const updated = await upsertMeta();
+            const updated = await generateMeta();
 
             if (!mountedRef.current) return;
             setData(updated);
@@ -355,7 +355,7 @@ const MetaAnalysisPage = () => {
                         createdAt={data?.createdAt}
                         updatedAt={data?.updatedAt}
                         clarity={result?.clarity}
-                        evidence={result?.evidenceNarrative?.howChosen ?? []}
+                        evidence={result?.evidence ?? []}
                         onPrev={() => {
                             setStep("INNER");
                             window.scrollTo({ top: 0, behavior: "smooth" });
