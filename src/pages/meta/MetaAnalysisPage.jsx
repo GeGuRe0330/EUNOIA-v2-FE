@@ -252,7 +252,6 @@ const MetaAnalysisPage = () => {
                                     <br />
                                     정답을 주기보다, 당신의 기록을 다시 바라볼 수 있게 돕는 작은 거울이 되고자 해요.
                                 </p>
-                                <p>*현재 시범 운영중인 BETA서비스입니다.*</p>
                             </section>
                         </CardMotion>
 
@@ -681,8 +680,8 @@ function TrustView({ periodText, createdAt, updatedAt, basedOnCount, clarity, ev
                     <div className="rounded-2xl bg-white/45 shadow-sm p-5 md:p-6 border-2 border-primary-dark/40">
                         <p className="text-sm md:text-base leading-relaxed text-textSecondary">
                             선명하게 기록된{" "}
-                            <span className="font-semibold text-textPrimary">{basedOnCount ?? 10}일</span>의 평균{" "}
-                            <span className="font-semibold text-textPrimary">{safeClarity.clarityScore ?? 0}점</span>
+                            <span className="font-semibold text-textPrimary">{basedOnCount ?? 10}일</span>의{" "}
+                            <span className="font-semibold text-textPrimary">평균 감정점수 {safeClarity.clarityScore ?? 0}점</span>
                             으로 만들어졌어요.
                         </p>
 
@@ -717,7 +716,7 @@ function TrustView({ periodText, createdAt, updatedAt, basedOnCount, clarity, ev
                                     key={`${e.entryId}-${idx}`}
                                     className="rounded-xl bg-white/35 border border-primary-dark/20 p-4"
                                 >
-                                    <div className="text-sm font-bold text-textPrimary">Entry #{e.entryId}</div>
+                                    <div className="text-sm font-bold text-textPrimary">{formatDate(e.entryDate)}의 기록</div>
                                     <div className="mt-1 text-sm text-textSecondary leading-relaxed">Hint : {e.whySelected}</div>
                                 </li>
                             ))}

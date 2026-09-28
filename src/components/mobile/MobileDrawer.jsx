@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 
 const navItems = [
     { to: "/dashboard", label: "감정 대시보드" },
-    { to: "/MetaAnalysisPage", label: "비춰지는 내모습 [BETA]" },
+    { to: "/MetaAnalysisPage", label: "비춰지는 내모습" },
     { to: "/write", label: "감정 기록하기" },
     { to: "/about", label: "유노이아란?" },
     { to: "/roadmap", label: "개발 로드맵" },
