@@ -1,14 +1,38 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useRouteLoaderData } from 'react-router-dom';
 import { approveMember, getPendingMembers } from '../../api/admin';
 import { useApiError } from '../../hooks/useApiError';
+import { isAdmin } from '../../utils/role';
 
+// 관리자 전용 — 메뉴는 role로 이미 숨겨져 있어, URL로 직접 들어온 경우 안내 (실제 권한은 백엔드 hasRole("ADMIN"))
 const AdminPendingPage = () => {
+    const me = useRouteLoaderData('layout');
+    return isAdmin(me) ? <PendingMemberList /> : <AdminOnlyNotice />;
+};
+
+const AdminOnlyNotice = () => (
+    <div className="min-h-[60vh] w-full flex items-center justify-center font-sans text-textPrimary px-4">
+        <div className="w-full max-w-md rounded-2xl bg-white/70 backdrop-blur shadow-sm border border-black/5 p-6 md:p-7 text-center">
+            <h1 className="text-lg font-semibold mb-2">관리자만 접근할 수 있어요.</h1>
+            <p className="text-sm text-gray-600 mb-6">관리자 계정으로 로그인한 경우에만 이 화면을 볼 수 있어요.</p>
+            <Link
+                to="/dashboard"
+                className="block w-full rounded-xl py-3 text-sm font-medium bg-black text-white hover:opacity-90 transition"
+            >
+                대시보드로
+            </Link>
+        </div>
+    </div>
+);
+
+const PendingMemberList = () => {
     const navigate = useNavigate();
     const { handleApiError } = useApiError();
     const [pending, setPending] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [actionLoadingId, setActionLoadingId] = useState(null);
+    // 승인 성공 안내(레거시에 없던 UX) — { id, text }로 두어 같은 문구가 연달아 와도 타이머가 새로 시작되게
+    const [approvedNotice, setApprovedNotice] = useState(null);
 
     const count = useMemo(() => pending.length, [pending]);
 
@@ -28,12 +52,17 @@ const AdminPendingPage = () => {
     const handleApprove = async (id) => {
         if (!id) return;
         setActionLoadingId(id);
+        const target = pending.find((m) => m.id === id);
 
         try {
             await approveMember(id);
             setPending((prev) => prev.filter((m) => m.id !== id));
+            setApprovedNotice({ id, text: `${target?.nickname ?? '회원'} 님을 승인했어요.` });
         } catch (err) {
+            setApprovedNotice(null);
             handleApiError(err);
+            // 409: 이미 승인된 회원(다른 관리자/탭에서 처리) — 목록이 낡았으니 다시 불러옴
+            if (err?.status === 409) fetchPending();
         } finally {
             setActionLoadingId(null);
         }
@@ -42,6 +71,13 @@ const AdminPendingPage = () => {
     useEffect(() => {
         fetchPending();
     }, [fetchPending]);
+
+    // 승인 안내는 3초 뒤 사라짐
+    useEffect(() => {
+        if (!approvedNotice) return;
+        const timer = setTimeout(() => setApprovedNotice(null), 3000);
+        return () => clearTimeout(timer);
+    }, [approvedNotice]);
 
     return (
         <div className="min-h-screen w-full flex justify-center text-textPrimary font-sans">
@@ -78,6 +114,15 @@ const AdminPendingPage = () => {
                     <div className="text-sm text-gray-600">
                         현재 대기 인원: <span className="font-semibold">{count}</span> 명
                     </div>
+                </div>
+
+                {/* 승인 안내 — live region은 항상 렌더링해 둬야 스크린리더가 새로 나타나는 안내를 읽음 */}
+                <div role="status" aria-live="polite">
+                    {approvedNotice && (
+                        <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700">
+                            {approvedNotice.text}
+                        </div>
+                    )}
                 </div>
 
                 {/* 로딩 */}

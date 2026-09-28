@@ -1,6 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import CardMotion from "../../components/motion/CardMotion";
-import { getMetaLatestForMe, upsertMeta } from "../../api/EunoiaApi";
+import EunoiaPageLinkButton from "../../components/common/EunoiaPageLinkButton";
+import { getMetaLatest, generateMeta, getMetaHistory } from "../../api/EunoiaApi";
+import { useApiError } from "../../hooks/useApiError";
+import {
+    resolveGateStatus,
+    isUsableGenerateResult,
+    isSameResult,
+    formatDate,
+    formatDateTime,
+    excerptHistoryTitle,
+} from "./metaView";
 
 /** -----------------------------
  *  UI: Buttons
@@ -33,10 +44,6 @@ const SecondaryButton = ({ children, onClick }) => (
 /** -----------------------------
  *  Utils
  * ----------------------------- */
-function formatYMD(dateStr) {
-    if (!dateStr) return "";
-    return dateStr.replaceAll("-", ".");
-}
 function clampPercent(value) {
     if (Number.isNaN(value)) return 0;
     return Math.max(0, Math.min(100, value));
@@ -53,41 +60,76 @@ const LOADING_LINES = [
  *  Page
  * ----------------------------- */
 const MetaAnalysisPage = () => {
+    const navigate = useNavigate();
+    const { handleApiError } = useApiError();
     const [PageLoading, setPageLoading] = useState(true);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [loadError, setLoadError] = useState(null);
+    const [generateError, setGenerateError] = useState(null);
+    const [sameResultNotice, setSameResultNotice] = useState(false);
     const [data, setData] = useState(null);
     const [isUpserting, setIsUpserting] = useState(false);
-    /**
-     * ✅ 예시: READY 응답 (Outer/Inner/Trust까지 보려면 READY가 편함)
-     * PREPARING을 보고 싶으면 status를 "PREPARING"으로 바꿔봐!
-     */
+    const [historyItems, setHistoryItems] = useState([]);
+    const [historyState, setHistoryState] = useState("loading"); // "loading" | "ready" | "error"
+    const [viewingHistory, setViewingHistory] = useState(null);
 
+    const fetchLatest = useCallback(async () => {
+        setPageLoading(true);
+        setLoadError(null);
+        try {
+            const result = await getMetaLatest();
+            // 알려진 status(PREPARING/READY)만 인정 — 그 외는 계약 위반으로 보고 오류 취급(fail-closed)
+            if (resolveGateStatus(result) === "UNKNOWN") {
+                setLoadError("알 수 없는 응답이에요.");
+                setPageLoading(false);
+                return;
+            }
+            setData(result);
+            setPageLoading(false);
+        } catch (err) {
+            // 보호 화면 공통 정책(②번) — 401은 세션 만료로 로그인 이동, 이동 중엔 화면이 안 바뀌도록 로딩 유지
+            if (err?.status === 401) {
+                handleApiError(err);
+                return;
+            }
+            setLoadError(err.message);
+            setPageLoading(false);
+        }
+    }, [handleApiError]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                const result = await getMetaLatestForMe();
-                setData(result);
-            } catch (err) {
-                setError(err.message);
-            } finally {
-                setPageLoading(false);
+        fetchLatest();
+    }, [fetchLatest]);
+
+    const fetchHistory = useCallback(async () => {
+        setHistoryState("loading");
+        try {
+            const items = await getMetaHistory();
+            setHistoryItems(Array.isArray(items) ? items : []);
+            setHistoryState("ready");
+        } catch (err) {
+            if (err?.status === 401) {
+                handleApiError(err);
+                return;
             }
-        };
+            // 이력은 부가 정보라 조회 실패로 전체 화면을 막지는 않음 — 다만 "이력 없음"과는 구분해서 보여줌
+            // (조회 실패 ≠ 데이터 없음, /latest와 같은 원칙)
+            setHistoryState("error");
+        }
+    }, [handleApiError]);
 
-        fetchData();
-    }, []);
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
 
-
-    const isPreparing = data?.status === "PREPARING";
-    const isReady = data?.status === "READY";
+    const gateStatus = resolveGateStatus(data);
+    const isPreparing = gateStatus === "PREPARING";
+    const isReady = gateStatus === "READY";
 
     // ✅ 프론트 화면 단계(라우트는 하나인데 화면은 step으로 바뀜)
     const [step, setStep] = useState("GATE"); // "GATE" | "LOADING" | "OUTER" | "INNER" | "TRUST"
 
     // ✅ 성능: 현재 step만 렌더링할 거라 데이터는 한 번만 유지
-    const result = data?.resultJson;
+    const result = data?.content;
 
     const progressPercent = useMemo(() => {
         const required = Number(data?.requiredCount ?? 0);
@@ -96,10 +138,16 @@ const MetaAnalysisPage = () => {
         return clampPercent(Math.round((current / required) * 100));
     }, [data?.requiredCount, data?.currentCount]);
 
-    // ✅ 이전 분석 결과 보기 노출 조건(안전하게 이중 체크)
-    const hasPreviousResult = Boolean(data?.createdAt && data?.resultJson);
+    const periodText = `${formatDate(data?.periodStart)} ~ ${formatDate(data?.periodEnd)}`;
 
-    const periodText = `${formatYMD(data?.periodStart)} ~ ${formatYMD(data?.periodEnd)}`;
+    // ✅ OUTER/INNER/TRUST가 그릴 데이터 — 지난 분석 목록에서 고른 항목이 있으면 그걸, 없으면 최신 결과를 그대로 재사용
+    const activeResult = viewingHistory ? viewingHistory.content : result;
+    const activePeriodText = viewingHistory
+        ? `${formatDate(viewingHistory.periodStart)} ~ ${formatDate(viewingHistory.periodEnd)}`
+        : periodText;
+    const activeCreatedAt = viewingHistory ? viewingHistory.createdAt : data?.createdAt;
+    const activeUpdatedAt = viewingHistory ? viewingHistory.updatedAt : data?.updatedAt;
+    const activeBasedOnCount = viewingHistory ? viewingHistory.basedOnCount : data?.currentCount;
 
     // 언마운트 가드
     const mountedRef = useRef(true);
@@ -116,17 +164,31 @@ const MetaAnalysisPage = () => {
 
         try {
             setIsUpserting(true);
-            setError(null);
+            setGenerateError(null);
 
             // ✅ 로딩 스텝으로 전환(여기서 "로딩 페이지"가 화면에 보임)
             setStep("LOADING");
             window.scrollTo({ top: 0, behavior: "smooth" });
 
             // ✅ 서버 분석 생성/갱신
-            const updated = await upsertMeta();
+            const updated = await generateMeta();
 
             if (!mountedRef.current) return;
+
+            // 드문 방어 케이스 — 생성 응답이 READY인데 content가 없는 등 계약을 벗어나면 준비 화면으로 복귀
+            if (!isUsableGenerateResult(updated)) {
+                setGenerateError("분석 결과를 만들지 못했어요. 다시 시도해 주세요.");
+                setStep("GATE");
+                return;
+            }
+
+            // 재생성 가드 — 선택된 일기 집합이 이전과 같으면 서버가 GPT 호출 없이 기존 결과를 그대로 돌려줌
+            setSameResultNotice(isSameResult(data, updated));
             setData(updated);
+            setViewingHistory(null); // 방금 생성한 최신 결과를 보여줄 차례 — 지난 분석을 보던 중이었다면 정리
+
+            // ✅ 지난 분석 목록 갱신(응답을 기다리지 않음 — 부가 정보라 화면 전환을 막을 필요 없음)
+            fetchHistory();
 
             // ✅ 결과로 진입
             setStep("OUTER");
@@ -134,7 +196,12 @@ const MetaAnalysisPage = () => {
         } catch (err) {
             if (!mountedRef.current) return;
 
-            setError(err?.message ?? "분석 생성에 실패했어요.");
+            if (err?.status === 401) {
+                handleApiError(err);
+                return;
+            }
+
+            setGenerateError(err?.message ?? "분석 생성에 실패했어요.");
             setStep("GATE"); // 실패 시 다시 준비 화면으로
         } finally {
             if (mountedRef.current) {
@@ -144,11 +211,43 @@ const MetaAnalysisPage = () => {
     };
 
     const handleGoGate = () => {
+        setViewingHistory(null); // GATE는 늘 최신 상태 기준 — 지난 분석을 보던 흔적을 남기지 않음
         setStep("GATE");
         window.scrollTo({ top: 0, behavior: "smooth" });
     };
 
+    const handleViewHistoryItem = (item) => {
+        setSameResultNotice(false); // 새로 생성한 게 아니라 지난 결과를 보러 가는 것
+        setViewingHistory(item);
+        setStep("OUTER");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
     if (PageLoading) return <div className="text-center">불러오는 중...</div>;
+
+    // 조회 실패(계약 위반으로 fail-closed된 경우 포함) — 재클릭이 곧 재시도(백엔드 §17)
+    if (loadError) {
+        return (
+            <div className="w-full">
+                <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 md:py-10">
+                    <CardMotion index={0}>
+                        <section className="rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8 text-center">
+                            <h1 className="text-xl md:text-2xl font-bold text-textPrimary">
+                                흐름을 불러오지 못했어요.
+                            </h1>
+                            <p className="mt-3 text-sm md:text-base leading-relaxed text-textSecondary">
+                                {loadError}
+                            </p>
+                            <div className="mt-5 flex justify-center">
+                                <PrimaryButton onClick={fetchLatest}>다시 불러오기</PrimaryButton>
+                            </div>
+                        </section>
+                    </CardMotion>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="w-full">
             <div className="mx-auto w-full max-w-4xl px-4 sm:px-6 py-6 md:py-10">
@@ -169,6 +268,17 @@ const MetaAnalysisPage = () => {
 
                 {step === "GATE" && (
                     <>
+                        {/* 생성 실패 안내 — 재클릭이 곧 재시도(백엔드 §17) */}
+                        {generateError && (
+                            <CardMotion index={0}>
+                                <section className="rounded-2xl bg-red-50 border border-red-200 shadow-sm p-4 md:p-5 mb-6">
+                                    <p className="text-sm md:text-base text-red-600 leading-relaxed">
+                                        {generateError}
+                                    </p>
+                                </section>
+                            </CardMotion>
+                        )}
+
                         {/* 0) 헤더 카드 */}
                         <CardMotion index={0}>
                             <section className="rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8">
@@ -185,20 +295,17 @@ const MetaAnalysisPage = () => {
                                             <br className="sm:hidden" /> 천천히, 한 단계씩 들어가볼까요
                                         </>
                                     )}
-                                    {!isPreparing && !isReady && (
-                                        <>
-                                            흐름을 불러오는 중이에요.
-                                            <br className="sm:hidden" /> 잠시만 기다려주세요
-                                        </>
-                                    )}
                                 </h1>
 
                                 <p className="mt-4 text-sm md:text-base leading-relaxed text-textSecondary">
                                     이 분석은 최근 30일을 기준으로, 하루에 하나씩 선별된 기록의 흐름을 바탕으로 만들어져요.
                                     <br />
+                                    분석은{" "}
+                                    <span className="font-semibold text-textPrimary">외적의 나 → 내면의 나 → 마치며</span>{" "}
+                                    순서로, 한 걸음씩 천천히 진행돼요.
+                                    <br />
                                     정답을 주기보다, 당신의 기록을 다시 바라볼 수 있게 돕는 작은 거울이 되고자 해요.
                                 </p>
-                                <p>*현재 시범 운영중인 BETA서비스입니다.*</p>
                             </section>
                         </CardMotion>
 
@@ -235,11 +342,19 @@ const MetaAnalysisPage = () => {
                                             </p>
                                         </div>
                                     </div>
+                                    {/* 2) 분석 시작하기 — READY일 때만, "기록 없음" 화면과 같은 디자인의 버튼 재사용 */}
+                                    {isReady && (
+                                        <div className="mt-6 flex justify-center">
+                                            <EunoiaPageLinkButton message="분석 시작하기" onClick={handleStartAnalysis} />
+                                        </div>
+                                    )}
                                 </div>
                             </section>
                         </CardMotion>
 
-                        {/* 2) PREPARING */}
+
+
+                        {/* 3) PREPARING */}
                         {isPreparing && (
                             <CardMotion index={2}>
                                 <section className="mt-6 rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8">
@@ -249,68 +364,74 @@ const MetaAnalysisPage = () => {
                                         <h2 className="text-lg font-bold text-textPrimary">조금만 더 기록이 쌓이면 열려요</h2>
                                         <p className="mt-2 text-sm md:text-base leading-relaxed text-textSecondary">
                                             당신의 모습을 비춰주기 위해서는 서로 다른 날짜에 작성된 최소 10개의 감정글이 필요해요.
-                                            <br />
-
                                         </p>
 
-                                        <ul className="mt-4 list-disc list-inside space-y-2 text-textSecondary text-sm md:text-base">
-                                            {(data?.actions ?? []).map((msg, idx) => (
-                                                <li key={idx}>{msg}</li>
-                                            ))}
-                                        </ul>
-
                                         <div className="mt-5 flex flex-col sm:flex-row gap-3">
-                                            <PrimaryButton onClick={() => alert("예시) 글쓰기 페이지로 이동")}>
+                                            <PrimaryButton onClick={() => navigate("/write")}>
                                                 오늘의 감정 기록하기
                                             </PrimaryButton>
-                                            <SecondaryButton onClick={() => alert("예시) 기록 목록 보기")}>
-                                                내 기록 보러가기
-                                            </SecondaryButton>
                                         </div>
                                     </div>
                                 </section>
                             </CardMotion>
                         )}
 
-                        {/* 3) READY */}
-                        {isReady && (
-                            <CardMotion index={2}>
-                                <section className="mt-6 rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8">
-                                    <p className="text-sm text-textSecondary mb-2">분석 시작</p>
+                        {/* 4) 지난 분석 — 이력이 없어도 카드는 항상 보여주고, 안내 문구만 그 안에 */}
+                        <CardMotion index={3}>
+                            <section className="mt-6 rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8">
+                                <p className="text-sm text-textSecondary mb-2">지난 분석</p>
 
-                                    <div className="rounded-2xl bg-white/45 shadow-sm p-5 md:p-6 border-2 border-primary-dark/40">
-                                        <h2 className="text-lg font-bold text-textPrimary">이제 흐름을 열어볼 수 있어요</h2>
-                                        <p className="mt-2 text-sm md:text-base leading-relaxed text-textSecondary">
-                                            준비가 되었어요. 분석은{" "}
-                                            <span className="font-semibold text-textPrimary">외적의 나 → 내면의 나 → 마치며</span>{" "}
-                                            순서로, 한 걸음씩 천천히 진행돼요.
-                                        </p>
+                                {historyState === "loading" && (
+                                    <p className="text-xs text-textSecondary">지난 분석을 불러오는 중이에요.</p>
+                                )}
 
-                                        <div className="mt-5 flex flex-col sm:flex-row gap-3">
-                                            <PrimaryButton onClick={handleStartAnalysis}>분석 시작하기</PrimaryButton>
+                                {historyState === "error" && (
+                                    <div className="flex flex-col items-start gap-2">
+                                        <p className="text-xs text-textSecondary">지난 분석을 불러오지 못했어요.</p>
+                                        <SecondaryButton onClick={fetchHistory}>다시 불러오기</SecondaryButton>
+                                    </div>
+                                )}
 
-                                            {hasPreviousResult && (
-                                                <SecondaryButton
-                                                    onClick={() => {
-                                                        // 예시: 이전 결과도 같은 흐름이라면 Outer로 진입시켜도 됨
-                                                        setStep("OUTER");
-                                                        window.scrollTo({ top: 0, behavior: "smooth" });
-                                                    }}
+                                {historyState === "ready" && historyItems.length === 0 && (
+                                    <p className="text-xs text-textSecondary">
+                                        이전 분석 결과가 아직 없어요. 이번 분석이 첫 장면이 될 거예요.
+                                    </p>
+                                )}
+
+                                {historyState === "ready" && historyItems.length > 0 && (
+                                    <div className="space-y-3">
+                                        {historyItems.map((item) => (
+                                            <button
+                                                key={item.periodEnd}
+                                                type="button"
+                                                onClick={() => handleViewHistoryItem(item)}
+                                                className="group w-full flex items-center justify-between gap-3 text-left rounded-2xl bg-white/45 hover:bg-white/65 transition-all duration-150 shadow-sm hover:shadow-md p-5 border-2 border-primary-dark/40 hover:border-primary-dark/70 cursor-pointer hover:-translate-y-0.5"
+                                            >
+                                                <div>
+                                                    <div className="text-sm md:text-base font-bold text-textPrimary">
+                                                        {excerptHistoryTitle(
+                                                            item.content,
+                                                            `${formatDate(item.periodStart)} ~ ${formatDate(item.periodEnd)}`
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-2 text-xs text-textSecondary">
+                                                        {formatDate(item.periodStart)} ~ {formatDate(item.periodEnd)} · 기준{" "}
+                                                        {item.basedOnCount}일 · 제외 {item.excludedEntryCount}건 ·{" "}
+                                                        {formatDateTime(item.createdAt)} 생성
+                                                    </div>
+                                                </div>
+                                                <span
+                                                    aria-hidden="true"
+                                                    className="text-primary-dark text-lg transition-transform duration-150 group-hover:translate-x-1"
                                                 >
-                                                    이전 분석 결과 보기
-                                                </SecondaryButton>
-                                            )}
-                                        </div>
-
-                                        {!hasPreviousResult && (
-                                            <p className="mt-3 text-xs text-textSecondary">
-                                                이전 분석 결과가 아직 없어요. 이번 분석이 첫 장면이 될 거예요.
-                                            </p>
-                                        )}
+                                                    ›
+                                                </span>
+                                            </button>
+                                        ))}
                                     </div>
-                                </section>
-                            </CardMotion>
-                        )}
+                                )}
+                            </section>
+                        </CardMotion>
                     </>
                 )}
 
@@ -319,10 +440,12 @@ const MetaAnalysisPage = () => {
          * ------------------------------------------------ */}
                 {step === "OUTER" && (
                     <OuterView
-                        periodText={periodText}
-                        outer={result?.outer}
+                        periodText={activePeriodText}
+                        outer={activeResult?.outer}
+                        sameResultNotice={sameResultNotice}
                         onBack={handleGoGate}
                         onNext={() => {
+                            setSameResultNotice(false); // 한 번 보여주면 충분 — 내면의 나로 넘어가면 정리
                             setStep("INNER");
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
@@ -334,7 +457,7 @@ const MetaAnalysisPage = () => {
          * ------------------------------------------------ */}
                 {step === "INNER" && (
                     <InnerView
-                        inner={result?.inner}
+                        inner={activeResult?.inner}
                         onPrev={() => {
                             setStep("OUTER");
                             window.scrollTo({ top: 0, behavior: "smooth" });
@@ -351,19 +474,17 @@ const MetaAnalysisPage = () => {
          * ------------------------------------------------ */}
                 {step === "TRUST" && (
                     <TrustView
-                        periodText={periodText}
-                        createdAt={data?.createdAt}
-                        updatedAt={data?.updatedAt}
-                        clarity={result?.clarity}
-                        evidence={result?.evidenceNarrative?.howChosen ?? []}
+                        periodText={activePeriodText}
+                        createdAt={activeCreatedAt}
+                        updatedAt={activeUpdatedAt}
+                        basedOnCount={activeBasedOnCount}
+                        clarity={activeResult?.clarity}
+                        evidence={activeResult?.evidence ?? []}
                         onPrev={() => {
                             setStep("INNER");
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
-                        onDone={() => {
-                            setStep("GATE");
-                            window.scrollTo({ top: 0, behavior: "smooth" });
-                        }}
+                        onDone={handleGoGate}
                     />
                 )}
             </div>
@@ -417,10 +538,20 @@ function MetaLoadingBlock() {
 /** -----------------------------
  *  View: Outer
  * ----------------------------- */
-function OuterView({ periodText, outer, onBack, onNext }) {
+function OuterView({ periodText, outer, sameResultNotice, onBack, onNext }) {
     const safeOuter = outer ?? {};
     return (
         <>
+            {sameResultNotice && (
+                <CardMotion index={0}>
+                    <section className="rounded-2xl bg-primary/10 border border-primary-dark/20 shadow-sm p-4 md:p-5 mb-6">
+                        <p className="text-sm md:text-base text-textSecondary leading-relaxed">
+                            새로 반영할 기록이 없어서 이전 결과를 그대로 보여드려요.
+                        </p>
+                    </section>
+                </CardMotion>
+            )}
+
             <CardMotion index={0}>
                 <section className="rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8">
                     <p className="text-sm text-textSecondary mb-2">Step 1 · 외적의 나</p>
@@ -445,7 +576,7 @@ function OuterView({ periodText, outer, onBack, onNext }) {
                     <p className="text-lg font-bold text-textPrimary mb-2">당신의 외적인 모습</p>
                     <div className="rounded-2xl bg-white/45 shadow-sm p-5 md:p-6 border-2 border-primary-dark/40">
                         <p className="text-sm md:text-base leading-relaxed text-textSecondary">
-                            {safeOuter.summary ?? "아직 표시할 요약이 없어요."}
+                            {safeOuter.summary || "아직 표시할 요약이 없어요."}
                         </p>
 
                         {!!safeOuter.keywords?.length && (
@@ -535,7 +666,7 @@ function InnerView({ inner, onPrev, onNext }) {
                     <p className="text-lg font-bold text-textPrimary mb-2">내면은 어때보일까?</p>
                     <div className="rounded-2xl bg-white/45 shadow-sm p-5 md:p-6 border-2 border-primary-dark/40">
                         <p className="text-sm md:text-base leading-relaxed text-textSecondary">
-                            {safeInner.summary ?? "아직 표시할 요약이 없어요."}
+                            {safeInner.summary || "아직 표시할 요약이 없어요."}
                         </p>
 
                         {!!safeInner.keywords?.length && (
@@ -593,7 +724,7 @@ function InfoListCard({ title, items, emptyText = "표시할 내용이 아직 �
 /** -----------------------------
  *  View: Trust
  * ----------------------------- */
-function TrustView({ periodText, createdAt, updatedAt, clarity, evidence, onPrev, onDone }) {
+function TrustView({ periodText, createdAt, updatedAt, basedOnCount, clarity, evidence, onPrev, onDone }) {
     const safeClarity = clarity ?? {};
     const [showAllEvidence, setShowAllEvidence] = useState(false);
 
@@ -621,23 +752,14 @@ function TrustView({ periodText, createdAt, updatedAt, clarity, evidence, onPrev
             <CardMotion index={1}>
                 <section className="mt-6 rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8">
                     <p className="text-lg font-bold text-textPrimary">선명도</p>
-                    <p className="mb-2 text-sm text-textSecondary leading-relaxed">
-                        이번 분석이 당신을 얼만큼 비추어 보았을까요?
-                    </p>
 
                     <div className="rounded-2xl bg-white/45 shadow-sm p-5 md:p-6 border-2 border-primary-dark/40">
-                        <div className="flex items-end justify-between">
-                            <div className="text-sm font-semibold text-textPrimary">총 선명도</div>
-                            <div className="text-2xl font-extrabold text-textPrimary">
-                                {safeClarity.clarityScore ?? 0}
-                            </div>
-                        </div>
-                        <div className="mt-2 w-full rounded-full bg-white/40 border border-primary-dark/20 overflow-hidden h-3">
-                            <div
-                                className="h-3 rounded-full bg-primary-dark/50 transition-all"
-                                style={{ width: `${safeClarity.clarityScore}%` }}
-                            />
-                        </div>
+                        <p className="text-sm md:text-base leading-relaxed text-textSecondary">
+                            선명하게 기록된{" "}
+                            <span className="font-semibold text-textPrimary">{basedOnCount ?? 10}일</span>의{" "}
+                            <span className="font-semibold text-textPrimary">평균 선명도 {safeClarity.clarityScore ?? 0}점</span>
+                            으로 만들어졌어요.
+                        </p>
 
                         {!!safeClarity.clarityReasons?.length && (
                             <ul className="mt-3 list-disc pl-5 space-y-2 text-sm md:text-base text-textSecondary leading-relaxed">
@@ -670,7 +792,7 @@ function TrustView({ periodText, createdAt, updatedAt, clarity, evidence, onPrev
                                     key={`${e.entryId}-${idx}`}
                                     className="rounded-xl bg-white/35 border border-primary-dark/20 p-4"
                                 >
-                                    <div className="text-sm font-bold text-textPrimary">Entry #{e.entryId}</div>
+                                    <div className="text-sm font-bold text-textPrimary">{formatDate(e.entryDate)}의 기록</div>
                                     <div className="mt-1 text-sm text-textSecondary leading-relaxed">Hint : {e.whySelected}</div>
                                 </li>
                             ))}
@@ -697,10 +819,10 @@ function TrustView({ periodText, createdAt, updatedAt, clarity, evidence, onPrev
                                 <span className="font-semibold text-textPrimary">분석 기간</span> · {periodText}
                             </div>
                             <div className="mt-1">
-                                <span className="font-semibold text-textPrimary">생성</span> · {createdAt ?? "-"}
+                                <span className="font-semibold text-textPrimary">생성</span> · {formatDateTime(createdAt) || "-"}
                             </div>
                             <div className="mt-1">
-                                <span className="font-semibold text-textPrimary">갱신</span> · {updatedAt ?? "-"}
+                                <span className="font-semibold text-textPrimary">갱신</span> · {formatDateTime(updatedAt) || "-"}
                             </div>
                         </div>
 

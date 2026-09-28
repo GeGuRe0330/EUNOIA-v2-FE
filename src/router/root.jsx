@@ -2,10 +2,11 @@ import { lazy, Suspense } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import Layout from '../layout/Layout';
 import { requireAuth } from '../utils/requireAuth';
+import RouteErrorPage from '../pages/error/RouteErrorPage';
 
 const IntroPage = lazy(() => import('../pages/intro/IntroPage'));
 const MainPage = lazy(() => import('../pages/main/MainPage'));
-const WritePage = lazy(() => import('../pages/write/writePage'));
+const WritePage = lazy(() => import('../pages/write/WritePage'));
 const AboutPage = lazy(() => import('../pages/about/AboutPage'));
 const LoadingPage = lazy(() => import('../pages/loading/LoadingPage'));
 const LoginPage = lazy(() => import('../pages/login/LoginPage'));
@@ -13,10 +14,7 @@ const SignupPage = lazy(() => import('../pages/signUp/SignupPage'));
 const AdminPendingPage = lazy(() => import('../pages/admin/AdminPendingPage'));
 const RoadmapPage = lazy(() => import('../pages/roadmap/RoadmapPage'));
 const MetaAnalysisPage = lazy(() => import('../pages/meta/MetaAnalysisPage'));
-const MyPage = lazy(() => import('../pages/profilepage/myPage'));
-
-//임시) 백업페이지
-const BackupDownloadPage = lazy(() => import('../pages/backup/BackupDownloadPage'));
+const MyPage = lazy(() => import('../pages/profilepage/MyPage'));
 
 const root = createBrowserRouter([
     {
@@ -49,12 +47,14 @@ const root = createBrowserRouter([
         ]
     },
     {
+        id: 'layout', // 하위 화면이 useRouteLoaderData('layout')로 내 정보(me)를 재사용
         path: '/',
         element: <Layout />,
+        loader: requireAuth,
+        errorElement: <RouteErrorPage />,
         children: [
             {
                 path: 'dashboard',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <MainPage />
@@ -63,7 +63,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'write',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <WritePage />
@@ -72,7 +71,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'about',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <AboutPage />
@@ -81,7 +79,6 @@ const root = createBrowserRouter([
             },
             {
                 path: 'roadmap',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <RoadmapPage />
@@ -90,21 +87,18 @@ const root = createBrowserRouter([
             },
             {
                 path: 'loading',
-                loader: requireAuth,
                 element: (
                     <LoadingPage />
                 )
             },
             {
                 path: 'MetaAnalysisPage',
-                loader: requireAuth,
                 element: (
                     <MetaAnalysisPage />
                 )
             },
             {
                 path: 'myPage',
-                loader: requireAuth,
                 element: (
                     <MyPage />
                 )
@@ -113,7 +107,6 @@ const root = createBrowserRouter([
             // Admin
             {
                 path: 'pendinglist',
-                loader: requireAuth,
                 element: (
                     <Suspense fallback={<div>Loading...</div>}>
                         <AdminPendingPage />
@@ -122,17 +115,6 @@ const root = createBrowserRouter([
             },
         ],
     },
-
-    // 임시 백업페이지 라우터
-    {
-        path: '/minecraft',
-        loader: requireAuth,
-        element: (
-            <Suspense fallback={<div>Loading...</div>}>
-                <BackupDownloadPage />
-            </Suspense>
-        )
-    }
 ]);
 
 export default root;

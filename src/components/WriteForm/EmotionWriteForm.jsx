@@ -7,11 +7,6 @@ const EmotionWriteForm = () => {
     const navigate = useNavigate();
     const [content, setContent] = useState('');
     const { handleApiError } = useApiError();
-    const [emotionTag, setEmotionTag] = useState('');
-    const [entryDate, setEntryDate] = useState(() => {
-        const today = new Date().toISOString().split('T')[0];
-        return today;
-    });
 
     const [isLoading, setIsLoading] = useState(false);
 
@@ -20,10 +15,8 @@ const EmotionWriteForm = () => {
         setIsLoading(true);
 
         try {
-            const res = await postEmotionEntry({
-                content,
-                emotionTag,
-            });
+            // 작성 날짜는 보내지 않음 — 서버가 오늘로 채움
+            const res = await postEmotionEntry({ content });
 
             const entryId = res.id;
 
@@ -59,33 +52,6 @@ const EmotionWriteForm = () => {
                 onChange={(e) => setContent(e.target.value)}
                 required
             />
-
-            {/* <div>
-                <label className="block mb-1 font-semibold">🙂 감정 태그</label>
-                <select
-                    className="w-full p-2 border rounded"
-                    value={emotionTag}
-                    onChange={(e) => setEmotionTag(e.target.value)}
-                    required
-                >
-                    <option value="">-- 감정을 선택하세요 --</option>
-                    <option value="기쁨">기쁨</option>
-                    <option value="슬픔">슬픔</option>
-                    <option value="불안">불안</option>
-                    <option value="분노">분노</option>
-                    <option value="기대">기대</option>
-                </select>
-            </div> */}
-
-            {/* <div>
-                <label className="block mb-1 font-semibold">📅 작성 날짜</label>
-                <input
-                    type="date"
-                    className="p-2 border rounded"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                />
-            </div> */}
 
             <button
                 type="submit"

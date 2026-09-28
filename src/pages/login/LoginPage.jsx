@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { login } from '../../api/authApi';
 
 
 const LoginPage = () => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     // 폼 상태
     const [form, setForm] = useState({
@@ -15,7 +16,15 @@ const LoginPage = () => {
 
     // UI 상태
     const [isLoading, setIsLoading] = useState(false);
-    const [errorMsg, setErrorMsg] = useState(''); // 로그인 실패 메시지 자리
+    // 로그인 실패 메시지 자리 — 세션 만료로 넘어온 경우(useApiError) 그 안내로 시작
+    const [errorMsg, setErrorMsg] = useState(location.state?.message ?? '');
+
+    // 세션 만료 안내는 한 번만 — history state를 비워 새로고침 시 다시 뜨지 않게
+    useEffect(() => {
+        if (location.state?.message) {
+            navigate(location.pathname, { replace: true, state: null });
+        }
+    }, [location.state, location.pathname, navigate]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -29,15 +38,7 @@ const LoginPage = () => {
 
         try {
             await login({ username: form.username, password: form.password });
-            //임시) 백업페이지로 리다이렉팅
-            if (form.username === 'minecraft@eunoia.com') {
-                navigate('/minecraft');
-            } else {
-                navigate('/dashboard');
-            }
-
-            // 기존
-            // navigate('/dashboard');
+            navigate('/dashboard');
 
         } catch (err) {
             const message = err.message || '로그인에 실패했어요. 잠시 후 다시 시도해주세요.';

@@ -1,12 +1,8 @@
 import { useEffect, useState } from 'react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
-function formatDate(isoString) {
-    const date = new Date(isoString);
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    return `${month}/${day}`;
-}
+import { formatEntryDate } from './chartData';
+
 function useIsMobile(breakpoint = 640) {
     const [isMobile, setIsMobile] = useState(
         window.matchMedia(`(max-width: ${breakpoint}px)`).matches
@@ -29,11 +25,13 @@ const EmotionScoreChart = ({ data }) => {
         return <div>감정 점수 데이터를 불러오는 중입니다...</div>;
     }
 
+    // /analyses/scores: [{ entryId, entryDate, emotionScore }] — 최근 7건, SUCCESS만, entryDate 오름차순
     const formattedData = data.map(item => ({
         ...item,
-        createdAt: item.createdAt,
         score: item.emotionScore
     }));
+    // x축 라벨용: entryId → entryDate (모바일에서 라벨을 걸러 표시하면 tickFormatter의 index가 원본 순번이 아니라서 값으로 찾음)
+    const dateByEntryId = new Map(data.map(item => [item.entryId, item.entryDate]));
 
 
     return (
@@ -58,7 +56,13 @@ const EmotionScoreChart = ({ data }) => {
 
                         <CartesianGrid strokeDasharray="10 5" stroke="rgba(92, 58, 33, 0.10)" />
 
-                        <XAxis dataKey="createdAt" interval={isMobile ? 1 : 0} height={30} tickFormatter={(iso) => formatDate(iso)} />
+                        {/* x축 키는 고유한 entryId — entryDate는 같은 날 일기 여러 건이 겹칠 수 있어 키로 쓰면 툴팁이 항상 첫 번째 점을 가리킴. 라벨(날짜)은 데이터에서 꺼냄 */}
+                        <XAxis
+                            dataKey="entryId"
+                            interval={isMobile ? 1 : 0}
+                            height={30}
+                            tickFormatter={(entryId) => formatEntryDate(dateByEntryId.get(entryId))}
+                        />
 
                         <YAxis
                             domain={[0, 100]}
@@ -67,11 +71,12 @@ const EmotionScoreChart = ({ data }) => {
                             width={22}
                         />
 
-                        <Tooltip labelFormatter={(iso) => formatDate(iso)} />
+                        <Tooltip labelFormatter={(_, payload) => formatEntryDate(payload?.[0]?.payload?.entryDate)} />
 
                         <Area
                             type="monotone"
                             dataKey="score"
+                            name="감정점수"
                             stroke="#B08968"
                             strokeWidth={2}
                             fill="url(#eunoiaFill)"
