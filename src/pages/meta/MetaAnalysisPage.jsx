@@ -69,6 +69,7 @@ const MetaAnalysisPage = () => {
     const [data, setData] = useState(null);
     const [isUpserting, setIsUpserting] = useState(false);
     const [historyItems, setHistoryItems] = useState([]);
+    const [historyState, setHistoryState] = useState("loading"); // "loading" | "ready" | "error"
     const [viewingHistory, setViewingHistory] = useState(null);
 
     const fetchLatest = useCallback(async () => {
@@ -100,16 +101,19 @@ const MetaAnalysisPage = () => {
     }, [fetchLatest]);
 
     const fetchHistory = useCallback(async () => {
+        setHistoryState("loading");
         try {
             const items = await getMetaHistory();
             setHistoryItems(Array.isArray(items) ? items : []);
+            setHistoryState("ready");
         } catch (err) {
             if (err?.status === 401) {
                 handleApiError(err);
                 return;
             }
-            // 이력은 부가 정보라 실패해도 화면을 막지 않음 — 목록만 비워서 섹션이 숨겨지게 함
-            setHistoryItems([]);
+            // 이력은 부가 정보라 조회 실패로 전체 화면을 막지는 않음 — 다만 "이력 없음"과는 구분해서 보여줌
+            // (조회 실패 ≠ 데이터 없음, /latest와 같은 원칙)
+            setHistoryState("error");
         }
     }, [handleApiError]);
 
@@ -377,11 +381,24 @@ const MetaAnalysisPage = () => {
                             <section className="mt-6 rounded-2xl bg-surface/70 shadow-sm p-6 md:p-8">
                                 <p className="text-sm text-textSecondary mb-2">지난 분석</p>
 
-                                {historyItems.length === 0 ? (
+                                {historyState === "loading" && (
+                                    <p className="text-xs text-textSecondary">지난 분석을 불러오는 중이에요.</p>
+                                )}
+
+                                {historyState === "error" && (
+                                    <div className="flex flex-col items-start gap-2">
+                                        <p className="text-xs text-textSecondary">지난 분석을 불러오지 못했어요.</p>
+                                        <SecondaryButton onClick={fetchHistory}>다시 불러오기</SecondaryButton>
+                                    </div>
+                                )}
+
+                                {historyState === "ready" && historyItems.length === 0 && (
                                     <p className="text-xs text-textSecondary">
                                         이전 분석 결과가 아직 없어요. 이번 분석이 첫 장면이 될 거예요.
                                     </p>
-                                ) : (
+                                )}
+
+                                {historyState === "ready" && historyItems.length > 0 && (
                                     <div className="space-y-3">
                                         {historyItems.map((item) => (
                                             <button
@@ -740,7 +757,7 @@ function TrustView({ periodText, createdAt, updatedAt, basedOnCount, clarity, ev
                         <p className="text-sm md:text-base leading-relaxed text-textSecondary">
                             선명하게 기록된{" "}
                             <span className="font-semibold text-textPrimary">{basedOnCount ?? 10}일</span>의{" "}
-                            <span className="font-semibold text-textPrimary">평균 감정점수 {safeClarity.clarityScore ?? 0}점</span>
+                            <span className="font-semibold text-textPrimary">평균 선명도 {safeClarity.clarityScore ?? 0}점</span>
                             으로 만들어졌어요.
                         </p>
 
