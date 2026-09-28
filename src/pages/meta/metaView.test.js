@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { resolveGateStatus, isUsableGenerateResult, isSameResult, formatDate, formatDateTime } from "./metaView";
+import {
+    resolveGateStatus,
+    isUsableGenerateResult,
+    isSameResult,
+    formatDate,
+    formatDateTime,
+    excerptHistoryTitle,
+} from "./metaView";
 
 describe("resolveGateStatus", () => {
     it.each(["PREPARING", "READY"])("알려진 status(%s)는 그대로 인정한다", (status) => {
@@ -99,5 +106,33 @@ describe("formatDateTime", () => {
     it("값이 없으면 빈 문자열", () => {
         expect(formatDateTime(null)).toBe("");
         expect(formatDateTime(undefined)).toBe("");
+    });
+});
+
+describe("excerptHistoryTitle", () => {
+    it("summary의 첫 문장만 발췌한다", () => {
+        const content = { outer: { summary: "첫 문장이에요. 둘째 문장은 길게 이어져요." } };
+        expect(excerptHistoryTitle(content, "fallback")).toBe("첫 문장이에요.");
+    });
+
+    it("문장 부호가 없으면 전체를 하나의 문장으로 본다", () => {
+        const content = { outer: { summary: "마침표 없이 쭉 이어지는 요약" } };
+        expect(excerptHistoryTitle(content, "fallback")).toBe("마침표 없이 쭉 이어지는 요약");
+    });
+
+    it("첫 문장이 너무 길면 잘라내고 말줄임표를 붙인다", () => {
+        const longSentence = "가".repeat(50) + ".";
+        const content = { outer: { summary: longSentence } };
+        const result = excerptHistoryTitle(content, "fallback");
+        expect(result).toBe("가".repeat(40) + "…");
+    });
+
+    it.each([
+        ["summary가 빈 문자열", { outer: { summary: "" } }],
+        ["outer가 없음", {}],
+        ["content가 없음", null],
+        ["content가 undefined", undefined],
+    ])("%s면 fallbackText를 쓴다", (_, content) => {
+        expect(excerptHistoryTitle(content, "2026.08.30 ~ 2026.09.28")).toBe("2026.08.30 ~ 2026.09.28");
     });
 });

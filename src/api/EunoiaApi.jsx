@@ -39,3 +39,9 @@ export const generateMeta = async () => {
     const res = await api.post(`${META_PREFIX}`);
     return unwrap(res);
 };
+
+// 메타 분석 이력 조회 — 과거 결과를 최신순(periodEnd desc)으로, 배열(없으면 빈 배열)
+export const getMetaHistory = async () => {
+    const res = await api.get(`${META_PREFIX}`);
+    return unwrap(res);
+};

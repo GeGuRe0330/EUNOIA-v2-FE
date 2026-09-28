@@ -35,3 +35,16 @@ export function formatDateTime(isoString) {
     if (!timePart) return date;
     return `${date} ${timePart.slice(0, 5)}`;
 }
+
+const HISTORY_TITLE_MAX_LENGTH = 40;
+
+// 이력 목록 제목 — content.outer.summary의 첫 문장을 발췌. 비어 있으면(백엔드가 근거 없을 때 빈 값으로 둠)
+// fallbackText(보통 분석 기간 텍스트)로 대체
+export function excerptHistoryTitle(content, fallbackText) {
+    const summary = content?.outer?.summary;
+    if (!summary) return fallbackText;
+
+    const firstSentence = summary.split(/(?<=[.!?])\s/)[0] || summary;
+    if (firstSentence.length <= HISTORY_TITLE_MAX_LENGTH) return firstSentence;
+    return `${firstSentence.slice(0, HISTORY_TITLE_MAX_LENGTH)}…`;
+}
