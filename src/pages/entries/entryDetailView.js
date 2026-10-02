@@ -72,19 +72,30 @@ export const resolveAnalysisView = (result) => {
 
 // 분석 영역을 접어 둔 상태에서 머리글 옆에 보일 한 줄 안내 — 펼치지 않아도 지금 분석이 어떤 상태인지 알 수 있게 한다
 // status는 분석 조회(useAsyncSection)의 상태("loading" | "error" | "ready"), view는 ready일 때 resolveAnalysisView의 결과
+// 문구는 화면을 보며 다듬는 부분이라 한 곳(ANALYSIS_HINTS)에 모아 둔다 — "분석"이라는 표현을 피해 EUNOIA가 읽는다는 어조로 맞췄고,
+// 같은 화면의 처리 중 카드("아직 EUNOIA가 읽는 중이에요.")·해석 불가 카드("EUNOIA의 결과를 불러오지 못했어요.")와 같은 말을 쓴다
+export const ANALYSIS_HINTS = {
+    loading: "불러오는 중…",
+    error: "불러오지 못했어요",
+    processing: "아직 EUNOIA가 읽는 중이에요",
+    failed: "EUNOIA가 읽지 못했어요",
+    ready: "클릭해서 펼치기",
+    invalid: "결과를 불러오지 못했어요",
+};
+
 export const describeAnalysisHint = (status, view) => {
-    if (status === "loading") return "불러오는 중…";
-    if (status === "error") return "불러오지 못했어요";
+    if (status === "loading") return ANALYSIS_HINTS.loading;
+    if (status === "error") return ANALYSIS_HINTS.error;
 
     switch (view?.name) {
         case "processing":
-            return "아직 분석 중이에요";
+            return ANALYSIS_HINTS.processing;
         case "failed":
-            return "분석에 실패했어요";
+            return ANALYSIS_HINTS.failed;
         case "ready":
-            return "클릭해서 펼치기";
+            return ANALYSIS_HINTS.ready;
         default:
-            return "해석하지 못했어요";
+            return ANALYSIS_HINTS.invalid;
     }
 };
 

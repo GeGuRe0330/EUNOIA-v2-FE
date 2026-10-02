@@ -6,6 +6,13 @@ import { buildCalendarMonth } from "./myPageFixtures";
 
 const pad = (n) => String(n).padStart(2, "0");
 
+// 더미 글의 id는 900001부터 — 실제 DB의 일기 id(1, 2, 3…)와 우연히 겹치지 않게 한다.
+// 겹치면 더미 카드를 눌러도 실제 서버의 같은 id 글이 열려 "더미인지 실제인지" 헷갈리고, 삭제 같은 더미 동작이 실제 글처럼 보인다
+export const MOCK_ENTRY_ID_BASE = 900000;
+
+// 더미 글의 id인가 — 더미 글은 상세·분석도 서버가 아니라 더미로 열린다(EunoiaApi의 [MOCK] 구간)
+export const isMockEntryId = (id) => Number.isInteger(id) && id > MOCK_ENTRY_ID_BASE;
+
 const SAMPLES = [
     { emotionDetected: "기대", content: "오늘은 다시 EUNOIA를 다듬어보고 싶다는 생각이 들었다." },
     { emotionDetected: "불안", content: "요즘 취업 준비에만 매몰된 것 같아서 조금 지쳤다." },
@@ -40,7 +47,7 @@ export const buildAllEntries = (now = new Date(), monthsBack = 6) => {
         .map((entry, index) => {
             const sample = SAMPLES[index % SAMPLES.length];
             return {
-                id: index + 1,
+                id: MOCK_ENTRY_ID_BASE + index + 1,
                 entryDate: entry.date,
                 content: sample.content,
                 emotionDetected: entry.hasScore ? sample.emotionDetected : null,
@@ -62,5 +69,39 @@ export const pageEntries = (entries, { from, to, page = 0, size = 10 } = {}) => 
         page,
         size,
         hasNext: start + size < filtered.length,
+    };
+};
+
+// --- 더미 삭제 반영 — 지운 id를 목록·캘린더·지표에서 빼는 순수 함수들 (deletedEntries 저장소가 id를 기억함)
+
+// 지운 글을 뺀 목록(최신순 유지)
+export const withoutDeleted = (entries, deletedIds) => {
+    const deleted = new Set(deletedIds);
+    return entries.filter((entry) => !deleted.has(entry.id));
+};
+
+// 지운 글이 있던 날의 글 수를 줄이고, 0이 되면 그날을 뺀다 — 열람 목록에서 그 날을 조회했을 때 글 수와 캘린더가 일치하도록(api-spec의 일치 규칙)
+// 점수(averageScore)는 그대로 둔다(남은 글의 점수를 더미가 다시 계산하지 않음)
+export const applyDeletionsToCalendar = (calendar, deletedEntries) => {
+    const removedByDate = {};
+    deletedEntries.forEach((entry) => {
+        removedByDate[entry.entryDate] = (removedByDate[entry.entryDate] ?? 0) + 1;
+    });
+
+    return {
+        ...calendar,
+        days: calendar.days
+            .map((day) => ({ ...day, entryCount: day.entryCount - (removedByDate[day.date] ?? 0) }))
+            .filter((day) => day.entryCount > 0),
+    };
+};
+
+// 지운 글만큼 총 글 수를 줄이고, 이번 달에 쓴 글이면 이번 달 글 수도 줄인다(0 아래로는 내려가지 않음)
+export const applyDeletionsToSummary = (summary, deletedEntries, yearMonth) => {
+    const inMonth = deletedEntries.filter((entry) => entry.entryDate.startsWith(`${yearMonth}-`)).length;
+
+    return {
+        totalEntryCount: Math.max(0, summary.totalEntryCount - deletedEntries.length),
+        monthEntryCount: Math.max(0, summary.monthEntryCount - inMonth),
     };
 };

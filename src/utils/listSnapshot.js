@@ -49,3 +49,17 @@ export const hasListSnapshot = (key, now = Date.now()) => loadListSnapshot(key, 
 // 복원은 그 화면이 스스로 스크롤을 되돌리므로, 여기서 맨 위로 보내면 복원을 덮어쓴다(ScrollToTop의 skip 판정에 넘김)
 export const shouldKeepScroll = ({ pathname, search, navigationType }, now = Date.now()) =>
     navigationType === "POP" && hasListSnapshot(pathname + search, now);
+
+// 모든 스냅샷을 지운다 — 글을 삭제한 뒤 호출해야 한다. 안 그러면 뒤로 가기 때 저장해 둔 목록에 지운 카드가 그대로 남는다
+export const clearListSnapshots = () => {
+    try {
+        const keys = [];
+        for (let i = 0; i < sessionStorage.length; i += 1) {
+            const key = sessionStorage.key(i);
+            if (key?.startsWith(PREFIX)) keys.push(key); // 순회 중에 지우면 인덱스가 밀려 건너뛰므로 먼저 모은다
+        }
+        keys.forEach((key) => sessionStorage.removeItem(key));
+    } catch {
+        // 저장소를 못 쓰면 복원 스냅샷도 저장된 적이 없으므로 할 일이 없다
+    }
+};

@@ -4,7 +4,7 @@
 // 알려진 상태(SUCCESS/FAILED)만 인정 — 그 밖의 값은 계약 위반이라 성공으로 넘기지 않고 오류로 던짐
 
 // 계약에 없는 status가 왔을 때 화면에 보일 문구(프론트 담당 — 서버가 만든 메시지가 아님)
-export const UNKNOWN_STATUS_MESSAGE = "분석 결과를 해석하지 못했어요.";
+export const UNKNOWN_STATUS_MESSAGE = "결과를 해석하지 못했어요.";
 
 export const POLL_INTERVAL_MS = 2_000;
 // 전송 실패는 재시도 포함 ≈61초 만에 FAILED가 되므로 그 시점을 덮는 값. 넘겨도 실패가 아님(분석은 서버에서 계속)
