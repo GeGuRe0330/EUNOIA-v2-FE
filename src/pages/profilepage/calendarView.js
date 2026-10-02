@@ -19,6 +19,10 @@ export const currentYearMonth = (now = new Date()) => `${now.getFullYear()}-${pa
 export const todayDateString = (now = new Date()) =>
     `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
+// 오늘보다 뒤의 날짜인가 — "YYYY-MM-DD" 고정 형식이라 사전순 비교가 곧 시간순. 형식이 틀리면 false(오늘로 취급하지 않고 그냥 일반 칸)
+export const isFutureDate = (date, now = new Date()) =>
+    DATE_PATTERN.test(String(date ?? "")) && date > todayDateString(now);
+
 // 월 이동 — 연도를 넘겨서 계산, 형식이 틀리면 null
 export const shiftYearMonth = (yearMonth, delta) => {
     const parsed = parseYearMonth(yearMonth);

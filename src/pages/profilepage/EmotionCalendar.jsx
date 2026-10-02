@@ -4,6 +4,7 @@ import {
     formatYearMonthLabel,
     formatDayLabel,
     todayDateString,
+    isFutureDate,
 } from "./calendarView";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -17,7 +18,10 @@ const LEVEL_CLASSES = {
     5: "bg-primary-dark/70",
 };
 
-const BLANK_CLASS = "bg-primary-light/20 border-primary-dark/10 text-textSecondary/60";
+// 기록 없는 지난 날 — 글자는 투명도 없이 textSecondary 그대로(배경 대비 약 6:1). 이전에 /60을 줘서 2.6:1로 떨어졌던 것을 바로잡음
+const BLANK_CLASS = "bg-primary-light/20 border-primary-dark/10 text-textSecondary";
+// 오늘 이후 날짜 — 아직 오지 않은 날이라 배경·테두리를 걷고 흐리게(기록이 있을 수 없는 칸이라 호버·클릭 대상도 아님)
+const FUTURE_CLASS = "border-transparent bg-transparent text-textSecondary opacity-40";
 const LEVEL_BORDER_CLASS = "border-primary-dark/20 text-textPrimary";
 // 기록은 있지만 분석이 없거나 실패한 날 — 색 대신 점선 테두리로 "기록 있음"만 알림
 const NO_SCORE_CLASS = "bg-white/40 border-dashed border-primary-dark/50 text-textPrimary";
@@ -31,18 +35,19 @@ const NAV_BUTTON_CLASS =
     "rounded-lg border border-primary-dark/20 px-3 py-1.5 text-sm text-textSecondary " +
     "hover:bg-primary-light/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent";
 
-const DayCell = ({ cell, info, isToday }) => {
-    if (!cell) return <div role="gridcell" aria-hidden="true" />;
+const DayCell = ({ cell, info, isToday, isFuture }) => {
+    if (!cell) return <div role="cell" aria-hidden="true" />;
 
-    const stateClass = !info
-        ? BLANK_CLASS
-        : info.level === null
-          ? NO_SCORE_CLASS
-          : `${LEVEL_CLASSES[info.level]} ${LEVEL_BORDER_CLASS}`;
+    // 미래 > 기록 없음 > 분석 없는 기록(점선) > 점수 명암 순으로 정함
+    let stateClass;
+    if (isFuture) stateClass = FUTURE_CLASS;
+    else if (!info) stateClass = BLANK_CLASS;
+    else if (info.level === null) stateClass = NO_SCORE_CLASS;
+    else stateClass = `${LEVEL_CLASSES[info.level]} ${LEVEL_BORDER_CLASS}`;
 
     return (
         <div
-            role="gridcell"
+            role="cell"
             aria-label={formatDayLabel(cell.date, info?.entryCount)}
             aria-current={isToday ? "date" : undefined}
             className={`relative h-12 sm:h-16 rounded-md border flex items-center justify-center text-sm ${stateClass} ${
@@ -53,7 +58,7 @@ const DayCell = ({ cell, info, isToday }) => {
             {info && info.entryCount > 1 && (
                 <span
                     aria-hidden="true"
-                    className="absolute right-1 top-0.5 text-[10px] leading-none text-textSecondary"
+                    className="absolute right-1 top-0.5 text-[11px] font-semibold leading-none text-textPrimary"
                 >
                     ×{info.entryCount}
                 </span>
@@ -92,7 +97,9 @@ const EmotionCalendar = ({ yearMonth, days, loading, canNext, onPrev, onNext }) 
                 </button>
             </div>
 
-            <div role="grid" aria-label={`${formatYearMonthLabel(yearMonth)} 감정 캘린더`}>
+            {/* 보기 전용 표라 role="table"로 둠 — "grid"는 화살표 키로 칸을 옮기는 위젯이라는 약속이라 키보드 이동이 없는 지금은 맞지 않음.
+                날짜 이동(⑦)이 붙어 칸이 링크가 돼도 표 안의 링크로 접근 가능하고, 화살표 이동까지 구현할 때 grid로 올리면 됨 */}
+            <div role="table" aria-label={`${formatYearMonthLabel(yearMonth)} 감정 캘린더`}>
                 <div role="row" className="grid grid-cols-7 gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
                     {WEEKDAYS.map((weekday) => (
                         <div
@@ -105,7 +112,7 @@ const EmotionCalendar = ({ yearMonth, days, loading, canNext, onPrev, onNext }) 
                     ))}
                 </div>
 
-                <div className={`space-y-1.5 sm:space-y-2 transition-opacity ${loading ? "opacity-60" : ""}`}>
+                <div role="rowgroup" className={`space-y-1.5 sm:space-y-2 transition-opacity ${loading ? "opacity-60" : ""}`}>
                     {weeks.map((week, weekIndex) => (
                         <div key={weekIndex} role="row" className="grid grid-cols-7 gap-1.5 sm:gap-2">
                             {week.map((cell, cellIndex) => (
@@ -114,6 +121,7 @@ const EmotionCalendar = ({ yearMonth, days, loading, canNext, onPrev, onNext }) 
                                     cell={cell}
                                     info={cell ? indexed[cell.date] : undefined}
                                     isToday={cell?.date === today}
+                                    isFuture={cell ? isFutureDate(cell.date) : false}
                                 />
                             ))}
                         </div>

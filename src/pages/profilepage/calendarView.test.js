@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
     currentYearMonth,
     todayDateString,
+    isFutureDate,
     shiftYearMonth,
     canGoNext,
     formatYearMonthLabel,
@@ -23,6 +24,29 @@ describe("currentYearMonth / todayDateString", () => {
         const early = new Date(2026, 0, 5);
         expect(currentYearMonth(early)).toBe("2026-01");
         expect(todayDateString(early)).toBe("2026-01-05");
+    });
+});
+
+describe("isFutureDate", () => {
+    it("오늘보다 뒤면 미래다", () => {
+        expect(isFutureDate("2026-10-03", now)).toBe(true);
+        expect(isFutureDate("2026-11-01", now)).toBe(true);
+        expect(isFutureDate("2027-01-01", now)).toBe(true);
+    });
+
+    it("오늘과 지난 날짜는 미래가 아니다", () => {
+        expect(isFutureDate("2026-10-02", now)).toBe(false);
+        expect(isFutureDate("2026-10-01", now)).toBe(false);
+        expect(isFutureDate("2025-12-31", now)).toBe(false);
+    });
+
+    it("시각과 무관하게 날짜만 본다(오늘 자정 직전·직후도 같은 날)", () => {
+        expect(isFutureDate("2026-10-02", new Date(2026, 9, 2, 0, 0, 0))).toBe(false);
+        expect(isFutureDate("2026-10-03", new Date(2026, 9, 2, 23, 59, 59))).toBe(true);
+    });
+
+    it.each([null, undefined, "", "2026-10", "2026-10-3", "내일"])("형식이 틀리면(%s) false다", (value) => {
+        expect(isFutureDate(value, now)).toBe(false);
     });
 });
 
