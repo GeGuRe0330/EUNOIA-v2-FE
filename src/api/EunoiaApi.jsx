@@ -5,9 +5,18 @@ import {
     readMockScenario,
     buildSummary,
     buildCalendarMonth,
-    buildRecentEntries,
+    currentYearMonth,
 } from "./mock/myPageFixtures";
-import { buildAllEntries, pageEntries } from "./mock/entryListFixtures";
+import { buildMockEntryDetail, buildMockAnalysis } from "./mock/entryDetailFixtures";
+import {
+    isMockEntryId,
+    buildAllEntries,
+    pageEntries,
+    withoutDeleted,
+    applyDeletionsToCalendar,
+    applyDeletionsToSummary,
+} from "./mock/entryListFixtures";
+import { readDeletedIds, isEntryDeleted, markEntryDeleted } from "./mock/deletedEntries";
 
 // 감정 분석 API prefix
 const ANALYSIS_PREFIX = "/analyses";
@@ -27,6 +36,15 @@ export const getEmotionScores = async () => {
 
 // 일기별 분석 결과 조회(폴링용) — 처리 중이면 404, 완료되면 200(status SUCCESS | FAILED)
 export const getAnalysisByEntry = async (entryId) => {
+    // [MOCK] 더미 글(id 900001~)은 분석도 더미로 — 성공·실패(FAILED)·처리 중(404)을 섞어 돌려준다. 연동(⑩) 때 이 블록을 지운다
+    if (isMockEntryId(entryId)) {
+        const entry = buildAllEntries().find((candidate) => candidate.id === entryId);
+        await mockDelay();
+        const analysis = entry && !isEntryDeleted(entryId) ? buildMockAnalysis(entry) : null;
+        if (analysis === null) throw { status: 404, message: "아직 분석 결과가 없어요.", fieldErrors: [] };
+        return analysis;
+    }
+
     const res = await api.get(`${ANALYSIS_PREFIX}/by-entry/${entryId}`);
     return unwrap(res);
 };
@@ -39,6 +57,16 @@ export const postEmotionEntry = async (entryObj) => {
 
 // 감정글 단건 조회 — { id, memberId, content, entryDate }. 없는 글이면 404("존재하지 않는 감정글이에요."), 남의 글이면 403("해당 감정글에 대한 접근 권한이 없어요.")
 export const getEmotionEntry = async (entryId) => {
+    // [MOCK] 더미 단계에서 지운 글은 서버가 아직 모르므로 여기서 "없는 글"(404)로 처리하고, 더미 글(id 900001~)은 서버가 아니라 더미로 연다
+    // 실제 id는 그대로 서버로 간다 — 연동(⑩) 때 이 [MOCK] 블록을 지운다
+    if (isEntryDeleted(entryId)) throw { status: 404, message: "존재하지 않는 감정글이에요.", fieldErrors: [] };
+    if (isMockEntryId(entryId)) {
+        const entry = buildAllEntries().find((candidate) => candidate.id === entryId);
+        await mockDelay();
+        if (!entry) throw { status: 404, message: "존재하지 않는 감정글이에요.", fieldErrors: [] };
+        return buildMockEntryDetail(entry);
+    }
+
     const res = await api.get(`/emotion-entries/${entryId}`);
     return unwrap(res);
 };
@@ -91,7 +119,7 @@ export const getMyRecordSummary = async () => {
     await mockDelay();
     failIfScenario("summary");
     if (isEmptyScenario()) return { totalEntryCount: 0, monthEntryCount: 0 };
-    return buildSummary();
+    return applyDeletionsToSummary(buildSummary(), deletedEntries(), currentYearMonth());
 };
 
 // 월별 감정 캘린더 — 글이 있는 날만: { yearMonth: "YYYY-MM", days: [{ date, entryCount, averageScore | null }] }
@@ -100,15 +128,16 @@ export const getEmotionCalendar = async (yearMonth) => {
     await mockDelay();
     failIfScenario("calendar");
     if (isEmptyScenario()) return { yearMonth, days: [] };
-    return buildCalendarMonth(yearMonth);
+    return applyDeletionsToCalendar(buildCalendarMonth(yearMonth), deletedEntries());
 };
 
 // 최근 감정글 — 최신순 [{ id, entryDate, content, emotionDetected | null }], 없으면 빈 배열
+// 열람 목록 더미의 앞부분을 그대로 쓴다(api-spec: /recent는 목록의 size=5와 같은 항목 모양) — 목록·캘린더와 항상 같은 글이고, 지운 글도 함께 빠진다
 export const getRecentEntries = async (limit = 5) => {
     await mockDelay();
     failIfScenario("recent");
     if (isEmptyScenario()) return [];
-    return buildRecentEntries(limit);
+    return pageEntries(visibleEntries(), { page: 0, size: limit }).items;
 };
 
 // 감정글 목록(열람 화면) — 최신순, 조회 기간 필터 · 페이지 나누기
@@ -119,5 +148,25 @@ export const getEmotionEntries = async ({ from, to, page = 0, size = 10 } = {}) 
     failIfScenario("list");
     if (page > 0) failIfScenario("more");
     if (isEmptyScenario()) return { items: [], page, size, hasNext: false };
-    return pageEntries(buildAllEntries(), { from, to, page, size });
+    return pageEntries(visibleEntries(), { from, to, page, size });
+};
+
+// 감정글 삭제 — 백엔드는 소프트 삭제(삭제 표시만 하고 모든 조회에서 제외)로 구현될 예정. 응답: 바디 없는 성공(null)
+// 없는 글·이미 삭제된 글은 404("존재하지 않는 감정글이에요."), 남의 글은 403(해당 감정글에 대한 접근 권한이 없어요.) — 단건 조회와 같은 규칙
+// 지금은 지운 id만 기억해 더미 목록·캘린더·지표·최근 글·상세에서 뺀다(실제 서버의 글은 지워지지 않음)
+export const deleteEmotionEntry = async (entryId) => {
+    await mockDelay();
+    failIfScenario("delete");
+    if (isEntryDeleted(entryId)) throw { status: 404, message: "존재하지 않는 감정글이에요.", fieldErrors: [] };
+
+    markEntryDeleted(entryId);
+    return null;
+};
+
+// 지운 글을 뺀 더미 목록 / 지운 글만 모은 목록(캘린더·지표 보정용)
+const visibleEntries = () => withoutDeleted(buildAllEntries(), readDeletedIds());
+
+const deletedEntries = () => {
+    const deleted = new Set(readDeletedIds());
+    return buildAllEntries().filter((entry) => deleted.has(entry.id));
 };

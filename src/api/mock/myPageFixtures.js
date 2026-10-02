@@ -73,25 +73,3 @@ export const buildSummary = (now = new Date()) => {
     );
     return { totalEntryCount: monthEntryCount + 9, monthEntryCount };
 };
-
-const RECENT_SAMPLES = [
-    { emotionDetected: "기대", content: "오늘은 다시 EUNOIA를 다듬어보고 싶다는 생각이 들었다." },
-    { emotionDetected: "불안", content: "요즘 취업 준비에만 매몰된 것 같아서 조금 지쳤다." },
-    { emotionDetected: null, content: "분석이 아직 끝나지 않았거나 실패한 글은 감정 태그가 비어 있다." },
-    { emotionDetected: "평온", content: "저녁에 산책을 했다. 오랜만에 아무 생각 없이 걸었다." },
-    { emotionDetected: "뿌듯함", content: "미뤄 두었던 일을 끝냈다. 별것 아닌데도 마음이 가벼워졌다." },
-    { emotionDetected: "막막함", content: "무엇부터 해야 할지 모르겠다는 생각이 하루 종일 따라다녔다." },
-];
-
-// 최근 글 응답 — 최신순 [{ id, entryDate, content, emotionDetected | null }]
-export const buildRecentEntries = (limit = 5, now = new Date()) =>
-    RECENT_SAMPLES.slice(0, limit).map((sample, index) => {
-        const date = new Date(now);
-        date.setDate(date.getDate() - index * 2);
-        return {
-            id: RECENT_SAMPLES.length - index,
-            entryDate: toDateString(date),
-            content: sample.content,
-            emotionDetected: sample.emotionDetected,
-        };
-    });

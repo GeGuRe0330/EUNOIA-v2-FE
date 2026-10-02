@@ -243,7 +243,13 @@ const EntryListPage = () => {
                             <>
                                 <ul className="space-y-3">
                                     {items.map((entry) => (
-                                        <EntryCard key={entry.id} entry={entry} to={entryDetailPath(entry.id)} onOpen={handleOpenEntry} />
+                                        <EntryCard
+                                            key={entry.id}
+                                            entry={entry}
+                                            to={entryDetailPath(entry.id)}
+                                            state={{ from: snapshotKey }}
+                                            onOpen={handleOpenEntry}
+                                        />
                                     ))}
                                 </ul>
 

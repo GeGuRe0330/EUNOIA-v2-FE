@@ -8,6 +8,7 @@ import {
     splitKeywords,
     resolveAnalysisView,
     describeAnalysisHint,
+    ANALYSIS_HINTS,
     previewKeywords,
     KEYWORD_PREVIEW_COUNT,
 } from "./entryDetailView";
@@ -206,27 +207,38 @@ describe("resolveAnalysisView", () => {
 });
 
 describe("describeAnalysisHint", () => {
-    it("조회 중이면 불러오는 중이라고 말한다", () => {
-        expect(describeAnalysisHint("loading", null)).toBe("불러오는 중…");
+    // 문구는 화면을 보며 다듬는 부분이라 정확한 말이 아니라 "어떤 상태가 어떤 안내가 되는가"를 확인한다(문구는 ANALYSIS_HINTS 한 곳)
+    it("조회 중이면 불러오는 중 안내다", () => {
+        expect(describeAnalysisHint("loading", null)).toBe(ANALYSIS_HINTS.loading);
     });
 
-    it("조회 오류면 불러오지 못했다고 말한다(분석 결과가 있어도 오류가 우선)", () => {
-        expect(describeAnalysisHint("error", null)).toBe("불러오지 못했어요");
-        expect(describeAnalysisHint("error", { name: "ready" })).toBe("불러오지 못했어요");
+    it("조회 오류면 오류 안내다(분석 결과가 있어도 오류가 우선)", () => {
+        expect(describeAnalysisHint("error", null)).toBe(ANALYSIS_HINTS.error);
+        expect(describeAnalysisHint("error", { name: "ready" })).toBe(ANALYSIS_HINTS.error);
     });
 
     it.each([
-        ["처리 중", { name: "processing" }, "아직 분석 중이에요"],
-        ["FAILED", { name: "failed", reason: "x" }, "분석에 실패했어요"],
-        ["성공", { name: "ready" }, "클릭해서 펼치기"],
-        ["계약 위반", { name: "invalid" }, "해석하지 못했어요"],
-    ])("조회가 끝난 뒤 %s면 상태를 한 줄로 말한다", (_, view, text) => {
-        expect(describeAnalysisHint("ready", view)).toBe(text);
+        ["처리 중", { name: "processing" }, "processing"],
+        ["FAILED", { name: "failed", reason: "x" }, "failed"],
+        ["성공", { name: "ready" }, "ready"],
+        ["계약 위반", { name: "invalid" }, "invalid"],
+    ])("조회가 끝난 뒤 %s면 그 상태의 안내다", (_, view, key) => {
+        expect(describeAnalysisHint("ready", view)).toBe(ANALYSIS_HINTS[key]);
     });
 
-    it("결과를 알 수 없으면(null·모르는 이름) 해석하지 못했다고 말한다", () => {
-        expect(describeAnalysisHint("ready", null)).toBe("해석하지 못했어요");
-        expect(describeAnalysisHint("ready", { name: "other" })).toBe("해석하지 못했어요");
+    it("결과를 알 수 없으면(null·모르는 이름) 계약 위반 안내다", () => {
+        expect(describeAnalysisHint("ready", null)).toBe(ANALYSIS_HINTS.invalid);
+        expect(describeAnalysisHint("ready", { name: "other" })).toBe(ANALYSIS_HINTS.invalid);
+    });
+
+    it("모든 상태의 안내가 비어 있지 않고 서로 다르다(같은 말이면 접힌 머리글만 봐서는 상태를 구별할 수 없음)", () => {
+        const texts = Object.values(ANALYSIS_HINTS);
+        expect(texts.every((text) => typeof text === "string" && text.trim() !== "")).toBe(true);
+        expect(new Set(texts).size).toBe(texts.length);
+    });
+
+    it("상태별 안내가 정확히 여섯 가지다", () => {
+        expect(Object.keys(ANALYSIS_HINTS).sort()).toEqual(["error", "failed", "invalid", "loading", "processing", "ready"]);
     });
 });
 

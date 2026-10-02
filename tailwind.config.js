@@ -27,6 +27,11 @@ export default {
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },
         "fade-out": { from: { opacity: "1" }, to: { opacity: "0" } },
+        // 확인 모달이 나타날 때 — 살짝 커지며 또렷해짐(짧게)
+        "dialog-in": {
+          from: { opacity: "0", transform: "scale(0.96)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
         // 클릭을 은은하게 안내하는 문구용 — 흐려졌다 또렷해지기를 천천히 반복(깜빡임이 아니라 숨쉬듯)
         "soft-pulse": {
           "0%, 100%": { opacity: "0.45" },
@@ -45,6 +50,7 @@ export default {
         "fade-out": "fade-out 0.6s ease-in forwards",
         "message-fade": "message-fade 5.4s ease-in-out forwards",
         "soft-pulse": "soft-pulse 2.4s ease-in-out infinite",
+        "dialog-in": "dialog-in 0.18s ease-out",
       },
       fontFamily: {
         sans: ['"Noto Sans KR"', '"Inter"', "sans-serif"],

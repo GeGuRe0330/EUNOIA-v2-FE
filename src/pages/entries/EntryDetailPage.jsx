@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Trash2 } from "lucide-react";
 import Collapsible from "../../components/common/Collapsible";
+import ConfirmDialog from "../../components/common/ConfirmDialog";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import CardMotion from "../../components/motion/CardMotion";
 import EunoiaPageLinkButton from "../../components/common/EunoiaPageLinkButton";
@@ -10,7 +11,10 @@ import EmotionFlowCard from "../../components/Maindashboard/dashboard/EmotionFlo
 import WarmMessageCard from "../../components/Maindashboard/dashboard/WarmMessageCard";
 import InsightCard from "../../components/Maindashboard/dashboard/InsightCard";
 import { useAsyncSection } from "../../hooks/useAsyncSection";
-import { getEmotionEntry, getAnalysisByEntry } from "../../api/EunoiaApi";
+import { useApiError } from "../../hooks/useApiError";
+import { clearListSnapshots } from "../../utils/listSnapshot";
+import { getEmotionEntry, getAnalysisByEntry, deleteEmotionEntry } from "../../api/EunoiaApi";
+import { DELETE_CONFIRM, resolveDeleteFailure, safeReturnPath } from "./entryDeleteView";
 import {
     NOT_FOUND_MESSAGE,
     parseEntryId,
@@ -27,6 +31,12 @@ const CARD_CLASS =
 // 카드 안의 내부 카드 — 분석 카드들(대시보드 카드)과 같은 모양
 const INNER_CARD_CLASS = "bg-surface shadow-md rounded-xl p-4";
 
+// [삭제] — [이전으로]와 같은 줄 오른쪽. 위험한 동작이라 평소엔 조용한 테두리형이고 호버·포커스에서 붉은 계열로 바뀐다
+const DELETE_BUTTON_CLASS =
+    "inline-flex items-center gap-1.5 rounded-lg border-2 border-primary-dark/40 bg-white/60 px-4 py-1.5 text-sm font-semibold text-textPrimary shadow-sm " +
+    "transition-all duration-150 hover:-translate-y-0.5 hover:border-red-400 hover:bg-white/90 hover:text-red-600 hover:shadow-md " +
+    "active:translate-y-0 active:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400";
+
 const BACK_BUTTON_CLASS =
     "inline-flex items-center gap-1 rounded-lg border-2 border-primary-dark/40 bg-white/60 px-4 py-1.5 text-sm font-semibold text-textPrimary shadow-sm " +
     "transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/90 hover:shadow-md hover:border-primary-dark/80 " +
@@ -41,6 +51,7 @@ const EntryDetailPage = () => {
 
     const navigate = useNavigate();
     const location = useLocation();
+    const { handleApiError } = useApiError();
 
     const fetchEntry = useCallback(async () => {
         // 숫자가 아닌 주소는 서버에 묻지 않고 "없는 글"로 — 서버가 줄 문구와 같게
@@ -62,6 +73,11 @@ const EntryDetailPage = () => {
     const entry = useAsyncSection(fetchEntry);
     const analysis = useAsyncSection(fetchAnalysis);
 
+    // 삭제 확인 모달 상태 — 요청 중(deleting)에는 모달이 닫히지 않고, 실패하면 문구(deleteError)를 모달 안에 보여준다
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState(null);
+
     // 분석은 기본으로 접어 둔다 — 원문이 주인공이고 분석은 읽고 싶을 때 펼쳐 보는 정보
     const [analysisOpen, setAnalysisOpen] = useState(false);
 
@@ -75,16 +91,69 @@ const EntryDetailPage = () => {
     // 목록에서 눌러 들어왔으면 이전 화면(필터 포함)으로, 주소를 직접 열었다면(history의 첫 항목) 전체 목록으로
     const goBack = () => (location.key !== "default" ? navigate(-1) : navigate("/entries"));
 
+    const openDeleteConfirm = () => {
+        setDeleteError(null);
+        setConfirmOpen(true);
+    };
+
+    const closeDeleteConfirm = () => {
+        if (deleting) return;
+        setConfirmOpen(false);
+        setDeleteError(null);
+    };
+
+    // 삭제 뒤 목록으로 — 카드를 눌러 왔다면 그 목록(조회 기간 포함)으로, 아니면 전체 목록으로.
+    // replace라 지워진 상세가 히스토리에 남지 않고, 저장해 둔 목록 복원 스냅샷은 지운 글이 남아 있으므로 모두 비운다
+    const leaveAfterDelete = (notice) => {
+        clearListSnapshots();
+        navigate(safeReturnPath(location.state?.from), { replace: true, state: { entryNotice: notice } });
+    };
+
+    const handleDelete = async () => {
+        if (deleting) return;
+        setDeleting(true);
+        setDeleteError(null);
+
+        try {
+            await deleteEmotionEntry(id);
+            leaveAfterDelete("deleted");
+        } catch (err) {
+            // 세션 만료는 공통 정책(②번)으로 로그인 화면에 보낸다 — 이동하는 동안 모달은 그대로 둔다
+            if (err?.status === 401) {
+                handleApiError(err);
+                return;
+            }
+
+            setDeleting(false);
+            const failure = resolveDeleteFailure({ status: err?.status, message: err?.message });
+
+            // 이미 지워진 글(404)은 실패가 아니라 목록으로 보내며 안내, 그 외는 모달 안에 문구를 보이고 다시 시도하게 함
+            if (failure.name === "alreadyGone") {
+                leaveAfterDelete("alreadyGone");
+                return;
+            }
+            setDeleteError(failure.message);
+        }
+    };
+
     const errorKind = entry.status === "error" ? classifyEntryError({ status: entry.errorStatus, message: entry.message }) : null;
 
     return (
         <div className="min-h-screen font-sans px-4 py-8">
             <div className="max-w-3xl mx-auto space-y-6">
-                <div>
+                <div className="flex items-center justify-between gap-3">
                     <button type="button" onClick={goBack} className={BACK_BUTTON_CLASS}>
                         <span aria-hidden="true">←</span>
                         이전으로
                     </button>
+
+                    {/* 원문을 불러왔을 때만 — 없는 글·남의 글·오류 화면에서는 지울 대상이 없다 */}
+                    {entryView?.name === "ready" && (
+                        <button type="button" onClick={openDeleteConfirm} className={DELETE_BUTTON_CLASS}>
+                            <Trash2 aria-hidden="true" className="h-4 w-4" />
+                            삭제
+                        </button>
+                    )}
                 </div>
 
                 {/* 원문 */}
@@ -212,13 +281,13 @@ const EntryDetailPage = () => {
 
                                     {analysisView?.name === "invalid" && (
                                         <div className={INNER_CARD_CLASS}>
-                                            <SectionError message="분석 결과를 해석하지 못했어요." onRetry={analysis.reload} />
+                                            <SectionError message="EUNOIA의 결과를 불러오지 못했어요." onRetry={analysis.reload} />
                                         </div>
                                     )}
 
                                     {analysisView?.name === "processing" && (
                                         <div className={`${INNER_CARD_CLASS} text-center`}>
-                                            <p className="text-sm font-medium text-textPrimary mb-1">아직 분석 중이에요.</p>
+                                            <p className="text-sm font-medium text-textPrimary mb-1">아직 EUNOIA가 읽는 중이에요.</p>
                                             <p className="text-sm text-textSecondary leading-relaxed mb-5">
                                                 잠시 뒤에 다시 확인해 보세요.
                                             </p>
@@ -279,6 +348,19 @@ const EntryDetailPage = () => {
                     </CardMotion>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={confirmOpen}
+                title={DELETE_CONFIRM.title}
+                description={DELETE_CONFIRM.description}
+                confirmLabel={deleteError ? DELETE_CONFIRM.retryLabel : DELETE_CONFIRM.confirmLabel}
+                busyLabel={DELETE_CONFIRM.busyLabel}
+                busy={deleting}
+                errorMessage={deleteError}
+                danger
+                onConfirm={handleDelete}
+                onCancel={closeDeleteConfirm}
+            />
         </div>
     );
 };

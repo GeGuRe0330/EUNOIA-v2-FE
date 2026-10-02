@@ -8,7 +8,8 @@ const CARD_CLASS =
 const BODY_CLASS = "flex items-center justify-between gap-3 rounded-xl p-4";
 
 // onOpen: 링크를 누르는 순간(이동 직전) 부르는 콜백 — 열람 목록이 그 시점의 스크롤 위치·불러온 글을 저장해 두려고 쓴다
-const EntryCard = ({ entry, to, onOpen }) => {
+// state: 이동할 때 함께 넘길 상태 — 열람 목록이 "어느 목록에서 왔는지"를 넘겨 상세에서 삭제한 뒤 그 목록으로 돌아가게 한다
+const EntryCard = ({ entry, to, state, onOpen }) => {
     const body = (
         <>
             <div className="min-w-0 flex-1">
@@ -38,6 +39,7 @@ const EntryCard = ({ entry, to, onOpen }) => {
             {to ? (
                 <Link
                     to={to}
+                    state={state}
                     onClick={onOpen}
                     className={`${BODY_CLASS} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark/60`}
                 >

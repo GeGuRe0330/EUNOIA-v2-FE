@@ -44,7 +44,7 @@ const MainPage = () => {
 
     // 계약에 없는 status — 카드를 그리면 null 필드 때문에 2차 오류가 나므로 안내로 대신함
     if (view.name === "invalid") {
-        return <div className="text-red-500 text-center">분석 결과를 불러오지 못했어요.</div>;
+        return <div className="text-red-500 text-center">EUNOIA의 결과를 불러오지 못했어요.</div>;
     }
 
     // 분석이 하나도 없음(신규 회원 등) — 에러가 아닌 정상 상황, 레거시 화면 그대로
@@ -82,7 +82,7 @@ const MainPage = () => {
                     <div className="bg-surface/80 backdrop-blur-sm rounded-2xl shadow-md p-6 max-w-md border border-primary-dark/20">
                         <h2 className="text-lg font-semibold text-textPrimary mb-2">{view.reason}</h2>
                         <p className="text-sm text-textSecondary leading-relaxed mb-4">
-                            가장 최근에 작성한 기록의 분석을 마치지 못했어요.<br />
+                            가장 최근에 작성한 기록이에요.<br />
                             작성한 기록은 남아있어요.
                         </p>
                         <div className="mt-5 flex justify-center">

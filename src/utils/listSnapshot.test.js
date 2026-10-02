@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SNAPSHOT_TTL_MS, saveListSnapshot, loadListSnapshot, hasListSnapshot, shouldKeepScroll } from "./listSnapshot";
+import {
+    SNAPSHOT_TTL_MS,
+    saveListSnapshot,
+    loadListSnapshot,
+    hasListSnapshot,
+    shouldKeepScroll,
+    clearListSnapshots,
+} from "./listSnapshot";
 
 const KEY = "/entries?from=2026-10-01&to=2026-10-12";
 const entry = (id) => ({ id, dateText: "2026.10.12", content: `글 ${id}`, emotion: null });
@@ -108,6 +115,47 @@ describe("listSnapshot", () => {
         it("조회 기간(쿼리)이 다른 화면의 스냅샷으로는 true가 되지 않는다", () => {
             saveListSnapshot("/entries", data, 1_000);
             expect(shouldKeepScroll(location("POP"), 1_000)).toBe(false);
+        });
+    });
+
+    describe("clearListSnapshots", () => {
+        it("모든 조회 기간의 스냅샷을 지운다", () => {
+            saveListSnapshot("/entries", data, 1_000);
+            saveListSnapshot(KEY, data, 1_000);
+            saveListSnapshot("/entries?from=2026-09-01&to=2026-09-30", data, 1_000);
+
+            clearListSnapshots();
+
+            expect(loadListSnapshot("/entries", 1_000)).toBeNull();
+            expect(loadListSnapshot(KEY, 1_000)).toBeNull();
+            expect(loadListSnapshot("/entries?from=2026-09-01&to=2026-09-30", 1_000)).toBeNull();
+        });
+
+        it("스냅샷이 아닌 다른 저장값은 건드리지 않는다", () => {
+            sessionStorage.setItem("eunoia:mock:deleted-entry-ids", "[1]");
+            sessionStorage.setItem("other", "x");
+            saveListSnapshot(KEY, data, 1_000);
+
+            clearListSnapshots();
+
+            expect(sessionStorage.getItem("eunoia:mock:deleted-entry-ids")).toBe("[1]");
+            expect(sessionStorage.getItem("other")).toBe("x");
+        });
+
+        it("지운 뒤에는 뒤로 가기여도 복원하지 않는다(shouldKeepScroll이 false)", () => {
+            saveListSnapshot(KEY, data, 1_000);
+            clearListSnapshots();
+            expect(shouldKeepScroll({ pathname: "/entries", search: "?from=2026-10-01&to=2026-10-12", navigationType: "POP" }, 1_000)).toBe(false);
+        });
+
+        it("스냅샷이 없어도, 저장소를 못 쓰는 환경에서도 예외 없이 동작한다", () => {
+            expect(() => clearListSnapshots()).not.toThrow();
+            vi.stubGlobal("sessionStorage", {
+                get length() {
+                    throw new Error("blocked");
+                },
+            });
+            expect(() => clearListSnapshots()).not.toThrow();
         });
     });
 });
