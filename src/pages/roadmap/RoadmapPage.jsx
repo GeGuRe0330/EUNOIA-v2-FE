@@ -146,6 +146,18 @@ const RoadmapPage = () => {
             desc: "더욱 이쁜 모습으로 만들어올게요.",
             severity: "warn",
             hint: "레이아웃 재설계 검토중",
+        },
+        {
+            title: "사용자 프로필 페이지",
+            desc: "개인 맞춤형 프로필 페이지를 만들고있어요.",
+            severity: "warn",
+            hint: "도메인 엔티티 설계중",
+        },
+        {
+            title: "이전 감정 기록 열람 기능",
+            desc: "이전에 작성했던 과거 감정일기를 열람할 페이지를 만들고있어요.",
+            severity: "warn",
+            hint: "레이아웃 설계 중",
         }
     ];
 
