@@ -7,6 +7,7 @@
 //   fail:summary        지표 조회만 실패
 //   fail:calendar       캘린더 조회만 실패
 //   fail:recent         최근 글 조회만 실패
+//   fail:list / fail:more   열람 화면의 첫 조회 실패 / 더 보기만 실패 (entryListFixtures)
 
 // 가입 시각 — 실제로는 /members/me에 createdAt이 추가될 예정(백엔드 요청 전)
 export const MOCK_JOINED_AT = "2026-08-15T10:30:00";

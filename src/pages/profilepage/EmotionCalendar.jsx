@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { entriesPathForDate } from "../../utils/entryView";
 import {
     buildMonthGrid,
     indexCalendarDays,
@@ -27,7 +29,6 @@ const LEVEL_BORDER_CLASS = "border-primary-dark/20 text-textPrimary";
 const NO_SCORE_CLASS = "bg-white/40 border-dashed border-primary-dark/50 text-textPrimary";
 
 // 클릭할 수 있는 날(기록 있는 날)의 호버 효과 — 메타 분석 "지난 분석" 항목과 같은 결(살짝 떠오름 + 그림자 + 테두리 강조)
-// 열람 화면(⑦)이 생기면 이 칸을 <Link>로 바꾸고 키보드 포커스 스타일(focus-visible)도 함께 추가
 const CLICKABLE_CLASS =
     "cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary-dark/60";
 
@@ -45,20 +46,33 @@ const DayCell = ({ cell, info, isToday, isFuture }) => {
     else if (info.level === null) stateClass = NO_SCORE_CLASS;
     else stateClass = `${LEVEL_CLASSES[info.level]} ${LEVEL_BORDER_CLASS}`;
 
+    const label = formatDayLabel(cell.date, info?.entryCount);
+
     return (
         <div
             role="cell"
-            aria-label={formatDayLabel(cell.date, info?.entryCount)}
+            aria-label={info ? undefined : label}
             aria-current={isToday ? "date" : undefined}
             className={`relative h-12 sm:h-16 rounded-md border flex items-center justify-center text-sm ${stateClass} ${
                 isToday ? "ring-2 ring-primary-dark/60" : ""
             } ${info ? CLICKABLE_CLASS : ""}`}
         >
-            {cell.day}
+            {/* 기록 있는 날은 그날의 글 목록(열람 화면)으로 가는 링크 — 칸 전체가 눌리고, 링크의 aria-label이 날짜와 글 수를 읽어줌 */}
+            {info ? (
+                <Link
+                    to={entriesPathForDate(cell.date)}
+                    aria-label={label}
+                    className="absolute inset-0 flex items-center justify-center rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark"
+                >
+                    {cell.day}
+                </Link>
+            ) : (
+                cell.day
+            )}
             {info && info.entryCount > 1 && (
                 <span
                     aria-hidden="true"
-                    className="absolute right-1 top-0.5 text-[11px] font-semibold leading-none text-textPrimary"
+                    className="pointer-events-none absolute right-1 top-0.5 text-[11px] font-semibold leading-none text-textPrimary"
                 >
                     ×{info.entryCount}
                 </span>
@@ -68,7 +82,7 @@ const DayCell = ({ cell, info, isToday, isFuture }) => {
 };
 
 // 월 단위 감정 캘린더 — 글이 있는 날을 점수 기반 명암으로 칠함 (감정 종류별 색이 아님: emotionDetected가 자유 문자열이라 매핑 불가)
-// 날짜 클릭 이동은 열람 화면(⑦)이 생긴 뒤 연결 — 지금은 표시만
+// 기록 있는 날을 누르면 그날의 글 목록(/entries?from=…&to=…, 하루는 시작일=종료일)으로 이동
 // days는 서버 응답 그대로 받고, 달 밖·잘못된 항목 거르기는 indexCalendarDays가 함
 const EmotionCalendar = ({ yearMonth, days, loading, canNext, onPrev, onNext }) => {
     const weeks = buildMonthGrid(yearMonth);
@@ -150,6 +164,11 @@ const EmotionCalendar = ({ yearMonth, days, loading, canNext, onPrev, onNext }) 
                     />
                     <span>분석 없는 기록</span>
                 </div>
+
+                {/* 범례와 같은 글자 크기 — 넓은 화면(sm 이상)에선 범례와 같은 줄 우측 끝, 좁은 화면에선 범례보다 위에 한 줄 전체로 좌측 정렬 */}
+                <p className="order-first w-full text-left sm:order-none sm:ml-auto sm:w-auto sm:text-right">
+                    기록이 있는 날을 누르면 그날의 감정일기를 볼 수 있어요.
+                </p>
             </div>
         </div>
     );

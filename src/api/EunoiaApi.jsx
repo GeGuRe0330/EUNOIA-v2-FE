@@ -7,6 +7,7 @@ import {
     buildCalendarMonth,
     buildRecentEntries,
 } from "./mock/myPageFixtures";
+import { buildAllEntries, pageEntries } from "./mock/entryListFixtures";
 
 // 감정 분석 API prefix
 const ANALYSIS_PREFIX = "/analyses";
@@ -54,7 +55,7 @@ export const getMetaHistory = async () => {
     return unwrap(res);
 };
 
-// ===== [MOCK] 마이페이지 — 백엔드 구현 전 더미 =====
+// ===== [MOCK] 마이페이지·열람 — 백엔드 구현 전 더미 =====
 // 실제 응답과 같은 모양을 돌려주고, 화면 코드는 이 함수들만 호출한다.
 // 연동(⑩ common/records-integration) 때는 각 함수 안만 api.get(...) + unwrap으로 바꾸고 이 구간과 mock/ 폴더를 지운다.
 // 응답 모양 초안: 작업 문서 06.identity_my-page.md
@@ -102,4 +103,15 @@ export const getRecentEntries = async (limit = 5) => {
     failIfScenario("recent");
     if (isEmptyScenario()) return [];
     return buildRecentEntries(limit);
+};
+
+// 감정글 목록(열람 화면) — 최신순, 조회 기간 필터 · 페이지 나누기
+// 요청: { from?: "YYYY-MM-DD", to?: "YYYY-MM-DD"(둘 다 그 날 포함, 한쪽만 줘도 됨, 하루는 from=to), page?: 0부터, size?: 기본 10 } / 응답: { items: [{ id, entryDate, content, emotionDetected | null }], page, size, hasNext }
+// 글이 없으면 items가 빈 배열(404 아님). emotionDetected는 SUCCESS 분석의 대표 감정, 분석이 없거나 FAILED면 null
+export const getEmotionEntries = async ({ from, to, page = 0, size = 10 } = {}) => {
+    await mockDelay();
+    failIfScenario("list");
+    if (page > 0) failIfScenario("more");
+    if (isEmptyScenario()) return { items: [], page, size, hasNext: false };
+    return pageEntries(buildAllEntries(), { from, to, page, size });
 };

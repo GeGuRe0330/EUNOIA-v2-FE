@@ -147,7 +147,7 @@ const MobileDrawer = ({ open, onClose, me, onLogout }) => {
                         onClick={onClose}
                         className={[
                             "mt-4 block w-full rounded-xl px-4 py-2.5 text-sm font-semibold font-sans transition-all duration-150 border-2 border-primary-dark/40 hover:bg-white/90 hover:-translate-y-0.5 hover:shadow-md hover:border-primary-dark/80 active:translate-y-0 active:shadow-sm",
-                            isActive("/myPage") ? "bg-white/80" : "bg-white/50",
+                            isActive("/myPage") || isActive("/entries") ? "bg-white/80" : "bg-white/50",
                         ].join(" ")}
                     >
                         마이페이지

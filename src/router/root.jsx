@@ -15,6 +15,7 @@ const AdminPendingPage = lazy(() => import('../pages/admin/AdminPendingPage'));
 const RoadmapPage = lazy(() => import('../pages/roadmap/RoadmapPage'));
 const MetaAnalysisPage = lazy(() => import('../pages/meta/MetaAnalysisPage'));
 const MyPage = lazy(() => import('../pages/profilepage/MyPage'));
+const EntryListPage = lazy(() => import('../pages/entries/EntryListPage'));
 
 const root = createBrowserRouter([
     {
@@ -101,6 +102,12 @@ const root = createBrowserRouter([
                 path: 'myPage',
                 element: (
                     <MyPage />
+                )
+            },
+            {
+                path: 'entries',
+                element: (
+                    <EntryListPage />
                 )
             },
 

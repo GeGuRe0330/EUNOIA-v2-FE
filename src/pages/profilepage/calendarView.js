@@ -4,6 +4,8 @@
 const YEAR_MONTH_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+import { todayDateString } from "../../utils/dateString";
+
 const pad = (n) => String(n).padStart(2, "0");
 
 // "2026-10" → { year, month } / 형식이 틀리면 null
@@ -15,9 +17,8 @@ const parseYearMonth = (yearMonth) => {
 // 오늘이 속한 달 "YYYY-MM" (로컬 날짜 기준)
 export const currentYearMonth = (now = new Date()) => `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
 
-// 오늘 "YYYY-MM-DD" (로컬 날짜 기준)
-export const todayDateString = (now = new Date()) =>
-    `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+// 오늘 "YYYY-MM-DD" (로컬 날짜 기준) — 열람 화면도 써서 utils로 옮겼고, 이 모듈의 사용처·테스트는 그대로 두려고 다시 내보냄
+export { todayDateString };
 
 // 오늘보다 뒤의 날짜인가 — "YYYY-MM-DD" 고정 형식이라 사전순 비교가 곧 시간순. 형식이 틀리면 false(오늘로 취급하지 않고 그냥 일반 칸)
 export const isFutureDate = (date, now = new Date()) =>
