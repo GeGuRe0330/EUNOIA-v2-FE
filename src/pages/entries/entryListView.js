@@ -83,6 +83,25 @@ export const initialEntryListState = {
     moreMessage: null,
 };
 
+// 스냅샷({ items, page, hasNext })이 있으면 첫 조회를 건너뛰고 바로 그 목록으로 시작하는 상태 — 상세에서 뒤로 왔을 때 복원
+// 스냅샷이 없으면 처음 상태. 본문이 문자열이 아닌 깨진 항목은 걸러내고, 걸러낸 뒤 글이 없으면 복원하지 않는다
+export const buildInitialListState = (snapshot) => {
+    if (snapshot == null) return initialEntryListState;
+
+    const items = (Array.isArray(snapshot.items) ? snapshot.items : []).filter(
+        (entry) => entry != null && entry.id != null && typeof entry.content === "string"
+    );
+    if (items.length === 0) return initialEntryListState;
+
+    return {
+        ...initialEntryListState,
+        status: "ready",
+        items,
+        page: snapshot.page,
+        hasNext: snapshot.hasNext === true,
+    };
+};
+
 export const entryListReducer = (state, action) => {
     switch (action.type) {
         case "LOAD_START":

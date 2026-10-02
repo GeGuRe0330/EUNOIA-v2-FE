@@ -16,6 +16,7 @@ const RoadmapPage = lazy(() => import('../pages/roadmap/RoadmapPage'));
 const MetaAnalysisPage = lazy(() => import('../pages/meta/MetaAnalysisPage'));
 const MyPage = lazy(() => import('../pages/profilepage/MyPage'));
 const EntryListPage = lazy(() => import('../pages/entries/EntryListPage'));
+const EntryDetailPage = lazy(() => import('../pages/entries/EntryDetailPage'));
 
 const root = createBrowserRouter([
     {
@@ -108,6 +109,12 @@ const root = createBrowserRouter([
                 path: 'entries',
                 element: (
                     <EntryListPage />
+                )
+            },
+            {
+                path: 'entries/:id',
+                element: (
+                    <EntryDetailPage />
                 )
             },
 

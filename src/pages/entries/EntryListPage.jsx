@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocation, useNavigationType, useSearchParams } from "react-router-dom";
 import CardMotion from "../../components/motion/CardMotion";
 import EunoiaPageLinkButton from "../../components/common/EunoiaPageLinkButton";
 import SectionError from "../../components/common/SectionError";
@@ -7,6 +7,8 @@ import EntryCard from "../../components/entries/EntryCard";
 import { useEntryList } from "../../hooks/useEntryList";
 import { useInViewTrigger } from "../../hooks/useInViewTrigger";
 import { todayDateString } from "../../utils/dateString";
+import { entryDetailPath } from "../../utils/entryView";
+import { loadListSnapshot, saveListSnapshot } from "../../utils/listSnapshot";
 import {
     parseDateRange,
     isRangeSet,
@@ -39,9 +41,15 @@ const CAN_AUTO_LOAD = typeof IntersectionObserver !== "undefined";
 
 // 감정글 열람 — 내 감정글 전체 목록. 조회 기간(시작일·종료일)을 URL 쿼리(`?from=YYYY-MM-DD&to=YYYY-MM-DD`)로 둬서
 // 뒤로 가기·새로고침·링크 공유에도 유지된다. 하루는 시작일=종료일, 한쪽만 정해도 된다.
-// 마이페이지 캘린더의 날짜 클릭은 그 날을 시작일=종료일로 주입해 이 화면으로 온다. 카드 클릭 → 상세 이동은 상세(⑧)가 생기면 연결
+// 마이페이지 캘린더의 날짜 클릭은 그 날을 시작일=종료일로 주입해 이 화면으로 온다. 카드를 누르면 그 글의 상세(/entries/:id)로 간다
 const EntryListPage = () => {
     const [searchParams, setSearchParams] = useSearchParams();
+    const location = useLocation();
+    const navigationType = useNavigationType();
+    const snapshotKey = location.pathname + location.search;
+
+    // 상세에서 뒤로 가기(POP)로 돌아왔고 저장해 둔 목록이 있으면 그 목록과 스크롤 위치로 복원한다. 처음 마운트할 때 한 번만 정함
+    const [restored] = useState(() => (navigationType === "POP" ? loadListSnapshot(snapshotKey) : null));
 
     // 형식이 틀리거나 없는 날짜는 제한 없음, 시작일이 종료일보다 늦으면 둘 다 적용하지 않음(reversed)
     const { from, to, reversed } = parseDateRange(searchParams.get("from"), searchParams.get("to"));
@@ -51,7 +59,57 @@ const EntryListPage = () => {
     // 입력칸에서 방금 거부된 값의 안내 — 조회 기간이 바뀌어 적용되면 지운다
     const [inputError, setInputError] = useState(null);
 
-    const { status, items, page, hasNext, message, moreStatus, moreMessage, reload, loadMore } = useEntryList(range);
+    const { status, items, page, hasNext, message, moreStatus, moreMessage, reload, loadMore } = useEntryList(range, restored);
+
+    // --- 상세로 갔다가 돌아왔을 때 복원 ---
+    // 스크롤 위치는 스크롤할 때마다 기억해 둔다(언마운트 시점에는 새 화면이 그려져 브라우저가 이미 위치를 잘라 낸 뒤일 수 있음)
+    const scrollYRef = useRef(restored?.scrollY ?? 0);
+    const latestRef = useRef(null);
+    const savedOnOpenRef = useRef(false);
+
+    useEffect(() => {
+        const onScroll = () => {
+            scrollYRef.current = window.scrollY;
+        };
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+
+    // 매 렌더마다 최신 상태를 기억 — 아래 저장 함수들이 쓴다
+    useEffect(() => {
+        latestRef.current = { snapshotKey, status, items, page, hasNext };
+    });
+
+    const saveSnapshot = (scrollY) => {
+        const latest = latestRef.current;
+        if (!latest || latest.status !== "ready" || latest.items.length === 0) return;
+        saveListSnapshot(latest.snapshotKey, {
+            items: latest.items,
+            page: latest.page,
+            hasNext: latest.hasNext,
+            scrollY,
+        });
+    };
+
+    // 카드를 누르는 순간 저장 — 이때의 스크롤 위치가 가장 정확하다
+    const handleOpenEntry = () => {
+        saveSnapshot(window.scrollY);
+        savedOnOpenRef.current = true;
+    };
+
+    // 카드 클릭이 아닌 다른 경로로 화면을 떠날 때(브라우저 앞으로 가기 등)의 대비 — 클릭으로 이미 저장했으면 덮어쓰지 않는다
+    useEffect(
+        () => () => {
+            if (!savedOnOpenRef.current) saveSnapshot(scrollYRef.current);
+        },
+        []
+    );
+
+    // 복원한 목록은 이미 그려진 상태로 시작하므로 그리기 직후(화면에 보이기 전) 저장해 둔 위치로 되돌린다
+    useLayoutEffect(() => {
+        if (restored) window.scrollTo({ top: restored.scrollY, left: 0, behavior: "instant" });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // 목록 맨 아래의 보이지 않는 센서 — 화면에 가까워지면 다음 페이지를 불러온다.
     // 불러오는 중이거나 오류가 난 뒤(자동으로 재시도하면 실패가 반복됨)·마지막 페이지에서는 꺼 둔다
@@ -79,7 +137,7 @@ const EntryListPage = () => {
     return (
         <div className="min-h-screen font-sans px-4 py-8">
             <div className="max-w-3xl mx-auto space-y-6">
-                <CardMotion index={0}>
+                <CardMotion index={0} instant={Boolean(restored)}>
                     <section className={CARD_CLASS}>
                         <h1 className="text-2xl font-semibold text-textPrimary mb-1">지난 감정글</h1>
                         <p className="text-sm text-textSecondary">남겨 둔 기록을 천천히 다시 읽어 보세요.</p>
@@ -87,7 +145,7 @@ const EntryListPage = () => {
                 </CardMotion>
 
                 {/* 날짜 지정 — 별도 카드. "시작일 ~ 종료일" 대신 "[날짜]에서 [날짜]까지"로 읽히게 한다 */}
-                <CardMotion index={1}>
+                <CardMotion index={1} instant={Boolean(restored)}>
                     <section aria-labelledby="date-range-title" className={CARD_CLASS}>
                         <h2 id="date-range-title" className="text-lg font-semibold text-textPrimary mb-1">
                             기간 검색
@@ -144,7 +202,7 @@ const EntryListPage = () => {
                     </section>
                 </CardMotion>
 
-                <CardMotion index={2}>
+                <CardMotion index={2} instant={Boolean(restored)}>
                     <section aria-label="감정글 목록" className={CARD_CLASS}>
                         {status === "loading" && (
                             // 실제 카드(약 96px)와 비슷한 높이·개수로 자리를 잡아 데이터가 도착할 때 높이가 크게 변하지 않게 한다
@@ -185,7 +243,7 @@ const EntryListPage = () => {
                             <>
                                 <ul className="space-y-3">
                                     {items.map((entry) => (
-                                        <EntryCard key={entry.id} entry={entry} />
+                                        <EntryCard key={entry.id} entry={entry} to={entryDetailPath(entry.id)} onOpen={handleOpenEntry} />
                                     ))}
                                 </ul>
 

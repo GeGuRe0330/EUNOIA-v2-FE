@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatEntryDate, normalizeEntries, entriesPathForDate } from "./entryView";
+import { formatEntryDate, normalizeEntries, entriesPathForDate, entryDetailPath } from "./entryView";
 
 describe("formatEntryDate", () => {
     it("날짜를 점으로 구분해 보여준다", () => {
@@ -75,5 +75,20 @@ describe("entriesPathForDate", () => {
 
     it.each([null, undefined, "", "2026-10", "2026-10-2", "어제"])("날짜 형식이 틀리면(%s) 필터 없는 전체 목록이다", (value) => {
         expect(entriesPathForDate(value)).toBe("/entries");
+    });
+});
+
+describe("entryDetailPath", () => {
+    it("숫자·문자열 id로 상세 경로를 만든다", () => {
+        expect(entryDetailPath(31)).toBe("/entries/31");
+        expect(entryDetailPath("e-1")).toBe("/entries/e-1");
+    });
+
+    it("경로를 깨는 문자는 인코딩한다", () => {
+        expect(entryDetailPath("a/b?c")).toBe("/entries/a%2Fb%3Fc");
+    });
+
+    it.each([null, undefined, "", NaN, Infinity, {}])("id가 올바르지 않으면(%s) null이다", (value) => {
+        expect(entryDetailPath(value)).toBeNull();
     });
 });

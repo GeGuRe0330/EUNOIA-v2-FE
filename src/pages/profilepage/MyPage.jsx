@@ -12,7 +12,7 @@ import { Link } from "react-router-dom";
 import EunoiaPageLinkButton from "../../components/common/EunoiaPageLinkButton";
 import SectionError from "../../components/common/SectionError";
 import EntryCard from "../../components/entries/EntryCard";
-import { normalizeEntries } from "../../utils/entryView";
+import { normalizeEntries, entryDetailPath } from "../../utils/entryView";
 import ProfileAvatar from "../../components/common/ProfileAvatar";
 import EmotionCalendar from "./EmotionCalendar";
 import { currentYearMonth, shiftYearMonth, canGoNext } from "./calendarView";
@@ -236,7 +236,7 @@ const RecentEntriesSection = () => {
             {status === "ready" && entries.length > 0 && (
                 <ul className="space-y-3">
                     {entries.map((entry) => (
-                        <EntryCard key={entry.id} entry={entry} />
+                        <EntryCard key={entry.id} entry={entry} to={entryDetailPath(entry.id)} />
                     ))}
                 </ul>
             )}

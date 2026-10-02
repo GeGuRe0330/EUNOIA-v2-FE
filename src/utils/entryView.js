@@ -35,3 +35,9 @@ export const normalizeEntries = (entries) => {
 // 마이페이지 캘린더에서 그 날의 글 목록으로 가는 경로 — 하루는 시작일=종료일인 조회 기간으로 주입한다. 날짜 형식이 틀리면 필터 없는 전체 목록
 export const entriesPathForDate = (date) =>
     ENTRY_DATE_PATTERN.test(String(date ?? "")) ? `/entries?from=${date}&to=${date}` : "/entries";
+
+// 감정글 상세로 가는 경로 — id가 숫자나 비어 있지 않은 문자열이 아니면 null
+export const entryDetailPath = (id) => {
+    const valid = (typeof id === "number" && Number.isFinite(id)) || (typeof id === "string" && id !== "");
+    return valid ? `/entries/${encodeURIComponent(id)}` : null;
+};
