@@ -8,7 +8,11 @@ import {
     getEmotionCalendar,
     getRecentEntries,
 } from "../../api/EunoiaApi";
+import { Link } from "react-router-dom";
 import EunoiaPageLinkButton from "../../components/common/EunoiaPageLinkButton";
+import SectionError from "../../components/common/SectionError";
+import EntryCard from "../../components/entries/EntryCard";
+import { normalizeEntries } from "../../utils/entryView";
 import ProfileAvatar from "../../components/common/ProfileAvatar";
 import EmotionCalendar from "./EmotionCalendar";
 import { currentYearMonth, shiftYearMonth, canGoNext } from "./calendarView";
@@ -17,20 +21,10 @@ import {
     formatTogetherText,
     resolveLatestEmotion,
     formatEntryCount,
-    normalizeRecentEntries,
 } from "./myPageView";
 const CARD_CLASS =
     "bg-surface/80 backdrop-blur-sm rounded-2xl shadow-md p-6 border border-primary-dark/20";
 const STAT_CLASS = "rounded-xl bg-white/40 border border-primary-dark/10 p-2.5 sm:p-3";
-
-const SectionError = ({ message, onRetry }) => (
-    <div role="alert" className="text-sm text-red-500">
-        <p>{message}</p>
-        <button type="button" onClick={onRetry} className="mt-1 underline">
-            다시 불러오기
-        </button>
-    </div>
-);
 
 /* -----------------------------
  *  ① 프로필 + ② 기록 지표 — 한 카드
@@ -196,23 +190,25 @@ const fetchRecentEntries = () => getRecentEntries(RECENT_ENTRY_LIMIT);
 
 const RecentEntriesSection = () => {
     const { status, data, message, reload } = useAsyncSection(fetchRecentEntries);
-    const entries = normalizeRecentEntries(data);
+    const entries = normalizeEntries(data);
 
     return (
         <section aria-label="최근 감정글" className={CARD_CLASS}>
             <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-textPrimary">최근 감정글</h2>
 
-                {/* 열람 화면(⑦)이 생기면 /entries로 연결 */}
-                <button
-                    type="button"
-                    disabled
-                    aria-label="전체 보기 (준비 중)"
-                    title="준비 중이에요"
-                    className="text-sm text-textSecondary opacity-50 cursor-not-allowed"
+                <Link
+                    to="/entries"
+                    className="group inline-flex items-center gap-1 rounded-md text-sm font-semibold text-textSecondary transition-colors hover:text-textPrimary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark/60"
                 >
-                    전체 보기 →
-                </button>
+                    전체 보기
+                    <span
+                        aria-hidden="true"
+                        className="text-primary-dark transition-transform duration-150 group-hover:translate-x-1"
+                    >
+                        →
+                    </span>
+                </Link>
             </div>
 
             {status === "loading" && (
@@ -240,32 +236,7 @@ const RecentEntriesSection = () => {
             {status === "ready" && entries.length > 0 && (
                 <ul className="space-y-3">
                     {entries.map((entry) => (
-                        // 클릭하면 상세로 갈 카드라는 걸 호버로 알림(메타 분석 "지난 분석" 항목과 같은 결) — 상세(⑧)가 생기면
-                        // 이 li 안쪽을 <Link>로 바꾸고 키보드 포커스 스타일(focus-visible)도 함께 추가
-                        <li
-                            key={entry.id}
-                            className="group flex items-center justify-between gap-3 cursor-pointer rounded-xl border border-primary-dark/10 bg-white/40 p-4 shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/65 hover:shadow-md hover:border-primary-dark/40"
-                        >
-                            <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between mb-2">
-                                    <p className="text-sm font-medium text-textPrimary">{entry.dateText}</p>
-                                    {entry.emotion && (
-                                        <span className="text-xs px-2 py-1 rounded-full bg-primary-light/30 text-textSecondary">
-                                            {entry.emotion}
-                                        </span>
-                                    )}
-                                </div>
-
-                                <p className="text-sm text-textSecondary line-clamp-2">{entry.content}</p>
-                            </div>
-
-                            <span
-                                aria-hidden="true"
-                                className="text-primary-dark text-lg transition-transform duration-150 group-hover:translate-x-1"
-                            >
-                                →
-                            </span>
-                        </li>
+                        <EntryCard key={entry.id} entry={entry} />
                     ))}
                 </ul>
             )}
