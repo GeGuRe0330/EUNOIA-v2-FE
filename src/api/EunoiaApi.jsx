@@ -1,4 +1,12 @@
 import { api, unwrap } from "./defaultApi";
+import { getMe } from "./authApi";
+import {
+    MOCK_JOINED_AT,
+    readMockScenario,
+    buildSummary,
+    buildCalendarMonth,
+    buildRecentEntries,
+} from "./mock/myPageFixtures";
 
 // 감정 분석 API prefix
 const ANALYSIS_PREFIX = "/analyses";
@@ -44,4 +52,54 @@ export const generateMeta = async () => {
 export const getMetaHistory = async () => {
     const res = await api.get(`${META_PREFIX}`);
     return unwrap(res);
+};
+
+// ===== [MOCK] 마이페이지 — 백엔드 구현 전 더미 =====
+// 실제 응답과 같은 모양을 돌려주고, 화면 코드는 이 함수들만 호출한다.
+// 연동(⑩ common/records-integration) 때는 각 함수 안만 api.get(...) + unwrap으로 바꾸고 이 구간과 mock/ 폴더를 지운다.
+// 응답 모양 초안: 작업 문서 06.identity_my-page.md
+
+const MOCK_LATENCY_MS = 250;
+
+const mockDelay = () => new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS));
+
+// 시나리오가 해당 섹션 실패를 가리키면 normalizeApiError와 같은 모양으로 던진다
+const failIfScenario = (section) => {
+    if (readMockScenario() === `fail:${section}`) {
+        throw { status: 500, message: "서버에 오류가 발생했어요.", fieldErrors: [] };
+    }
+};
+
+const isEmptyScenario = () => readMockScenario() === "empty";
+
+// 내 프로필 — 실제로는 GET /members/me에 createdAt이 추가돼 이 호출 하나로 끝난다(백엔드 요청 전).
+// 지금은 실제 /members/me(닉네임·성별)에 더미 createdAt만 덧붙인다
+export const getMyProfile = async () => {
+    const me = await getMe();
+    return { ...me, createdAt: MOCK_JOINED_AT };
+};
+
+// 기록 지표 — { totalEntryCount, monthEntryCount }. "이번 달"은 서버 시각 기준(앱 시간대, backend-requests.md 6번)
+export const getMyRecordSummary = async () => {
+    await mockDelay();
+    failIfScenario("summary");
+    if (isEmptyScenario()) return { totalEntryCount: 0, monthEntryCount: 0 };
+    return buildSummary();
+};
+
+// 월별 감정 캘린더 — 글이 있는 날만: { yearMonth: "YYYY-MM", days: [{ date, entryCount, averageScore | null }] }
+// averageScore는 그날 SUCCESS 분석 emotionScore(0~100)의 평균, 분석이 없거나 FAILED뿐이면 null
+export const getEmotionCalendar = async (yearMonth) => {
+    await mockDelay();
+    failIfScenario("calendar");
+    if (isEmptyScenario()) return { yearMonth, days: [] };
+    return buildCalendarMonth(yearMonth);
+};
+
+// 최근 감정글 — 최신순 [{ id, entryDate, content, emotionDetected | null }], 없으면 빈 배열
+export const getRecentEntries = async (limit = 5) => {
+    await mockDelay();
+    failIfScenario("recent");
+    if (isEmptyScenario()) return [];
+    return buildRecentEntries(limit);
 };
