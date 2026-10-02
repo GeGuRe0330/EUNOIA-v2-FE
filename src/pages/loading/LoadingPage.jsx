@@ -115,7 +115,7 @@ const AnalysisProgress = ({ entryId }) => {
                 EUNOIA가 당신의 글을 읽고 있어요...
             </div>
             <div className="text-sm mb-10 text-gray-500">
-                여기까지 잘 걸어왔어요. 잠시만 기다려주세요 🤍
+                여기까지 잘 걸어왔어요. 잠시만 기다려주세요.
             </div>
 
             {/* 문구 자리 — 대기 문구와 따뜻한 말을 같은 자리에 겹쳐 두고 크로스페이드 */}

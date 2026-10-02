@@ -1,4 +1,4 @@
-const EmotionSummaryCard = ({ summary }) => {
+const EmotionSummaryCard = ({ summary, title = "오늘의 감정 요약" }) => {
     // 문장 포멧터
     function formatBySentence(text) {
         if (!text) return text;
@@ -8,7 +8,7 @@ const EmotionSummaryCard = ({ summary }) => {
     }
     return (
         <div className="bg-surface shadow-md rounded-xl p-4">
-            <h2 className="text-lg font-bold text-textPrimary">오늘의 감정 요약</h2>
+            <h2 className="text-lg font-bold text-textPrimary">{title}</h2>
             <p className="mt-1 text-textSecondary rounded-2xl bg-white/45 shadow-sm p-4 md:p-3 border border-primary-dark/25 text-sm whitespace-pre-line">{formatBySentence(summary)}</p>
         </div>
     );

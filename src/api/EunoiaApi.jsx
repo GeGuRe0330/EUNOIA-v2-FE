@@ -37,6 +37,12 @@ export const postEmotionEntry = async (entryObj) => {
     return unwrap(res);
 };
 
+// 감정글 단건 조회 — { id, memberId, content, entryDate }. 없는 글이면 404("존재하지 않는 감정글이에요."), 남의 글이면 403("해당 감정글에 대한 접근 권한이 없어요.")
+export const getEmotionEntry = async (entryId) => {
+    const res = await api.get(`/emotion-entries/${entryId}`);
+    return unwrap(res);
+};
+
 // 메타 분석 최신 조회 — PREPARING이면 content: null, READY면 content 채워짐
 export const getMetaLatest = async () => {
     const res = await api.get(`${META_PREFIX}/latest`);

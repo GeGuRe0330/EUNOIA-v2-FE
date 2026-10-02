@@ -12,6 +12,7 @@ import {
     mergeEntryPages,
     initialEntryListState,
     entryListReducer,
+    buildInitialListState,
 } from "./entryListView";
 
 describe("parseDateParam", () => {
@@ -302,5 +303,47 @@ describe("entryListReducer", () => {
     it("알 수 없는 action은 상태를 그대로 둔다", () => {
         const state = ready();
         expect(entryListReducer(state, { type: "UNKNOWN" })).toBe(state);
+    });
+});
+
+describe("buildInitialListState", () => {
+    const entry = (id) => ({ id, dateText: "2026.10.12", content: `글 ${id}`, emotion: null });
+
+    it("스냅샷이 없으면 처음 상태(로딩)다", () => {
+        expect(buildInitialListState(null)).toBe(initialEntryListState);
+        expect(buildInitialListState(undefined)).toBe(initialEntryListState);
+    });
+
+    it("스냅샷이 있으면 첫 조회 없이 바로 그 목록·페이지·다음 페이지 유무로 시작한다", () => {
+        const state = buildInitialListState({ items: [entry(3), entry(2)], page: 2, hasNext: true });
+        expect(state).toMatchObject({ status: "ready", page: 2, hasNext: true, moreStatus: "idle", moreMessage: null, message: null });
+        expect(state.items.map((e) => e.id)).toEqual([3, 2]);
+    });
+
+    it("복원한 상태에서도 이어 불러오기가 이어진다(다음 페이지 번호는 page + 1)", () => {
+        const started = entryListReducer(buildInitialListState({ items: [entry(3)], page: 2, hasNext: true }), { type: "MORE_START" });
+        expect(started.moreStatus).toBe("loading");
+        const done = entryListReducer(started, { type: "MORE_SUCCESS", items: [entry(2)], hasNext: false });
+        expect(done).toMatchObject({ page: 3, hasNext: false });
+        expect(done.items.map((e) => e.id)).toEqual([3, 2]);
+    });
+
+    it("hasNext가 정확히 true가 아니면 더 없다고 본다", () => {
+        expect(buildInitialListState({ items: [entry(1)], page: 0, hasNext: "true" }).hasNext).toBe(false);
+    });
+
+    it("본문이 문자열이 아니거나 id가 없는 깨진 항목은 걸러낸다", () => {
+        const state = buildInitialListState({
+            items: [entry(3), null, { id: 2 }, { content: "id 없음" }, { id: 1, content: 5 }, entry(4)],
+            page: 0,
+            hasNext: false,
+        });
+        expect(state.items.map((e) => e.id)).toEqual([3, 4]);
+    });
+
+    it("걸러낸 뒤 글이 하나도 없거나 items가 배열이 아니면 복원하지 않고 처음 상태다", () => {
+        expect(buildInitialListState({ items: [null, { id: 1 }], page: 0, hasNext: false })).toBe(initialEntryListState);
+        expect(buildInitialListState({ items: "x", page: 0, hasNext: false })).toBe(initialEntryListState);
+        expect(buildInitialListState({ items: [], page: 0, hasNext: false })).toBe(initialEntryListState);
     });
 });

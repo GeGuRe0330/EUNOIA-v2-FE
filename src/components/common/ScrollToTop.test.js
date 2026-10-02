@@ -9,9 +9,11 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let navigate;
 
+let shouldSkip;
+
 const Harness = () => {
     navigate = useNavigate();
-    return createElement(ScrollToTop);
+    return createElement(ScrollToTop, { shouldSkip });
 };
 
 describe("ScrollToTop", () => {
@@ -21,6 +23,7 @@ describe("ScrollToTop", () => {
 
     beforeEach(() => {
         scrollTo = vi.fn();
+        shouldSkip = undefined;
         vi.stubGlobal("scrollTo", scrollTo);
         container = document.createElement("div");
         document.body.appendChild(container);
@@ -65,5 +68,35 @@ describe("ScrollToTop", () => {
     it("같은 경로로 다시 이동해도 경로가 같으면 스크롤하지 않는다", () => {
         act(() => navigate("/myPage"));
         expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it("shouldSkip이 true를 주면 그 이동에서는 맨 위로 보내지 않는다(스스로 위치를 복원하는 화면)", () => {
+        shouldSkip = vi.fn(() => true);
+        act(() => root.unmount());
+        root = createRoot(container);
+        act(() => {
+            root.render(createElement(MemoryRouter, { initialEntries: ["/myPage", "/entries"], initialIndex: 1 }, createElement(Harness)));
+        });
+        scrollTo.mockClear();
+
+        act(() => navigate(-1)); // 뒤로 가기(POP)
+
+        expect(shouldSkip).toHaveBeenCalledWith(expect.objectContaining({ pathname: "/myPage", navigationType: "POP" }));
+        expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it("shouldSkip에는 이동한 화면의 경로·쿼리·이동 종류를 넘기고, false면 평소처럼 맨 위로 간다", () => {
+        shouldSkip = vi.fn(() => false);
+        act(() => root.unmount());
+        root = createRoot(container);
+        act(() => {
+            root.render(createElement(MemoryRouter, { initialEntries: ["/myPage"] }, createElement(Harness)));
+        });
+        scrollTo.mockClear();
+
+        act(() => navigate("/entries?from=2026-10-01"));
+
+        expect(shouldSkip).toHaveBeenLastCalledWith({ pathname: "/entries", search: "?from=2026-10-01", navigationType: "PUSH" });
+        expect(scrollTo).toHaveBeenCalledTimes(1);
     });
 });
