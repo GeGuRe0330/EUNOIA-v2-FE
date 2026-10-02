@@ -1,10 +1,11 @@
 import { redirect } from "react-router-dom";
 import { getMe } from "../api/authApi";
+import { applyProfileOverride } from "../api/mock/profileOverride"; // [MOCK] 프로필 설정 더미(⑨) — 연동(⑩)에서 제거
 
 // 보호 화면(Layout) 진입 시 세션 확인 + 내 정보 반환 (Layout이 useLoaderData로 사용)
 export const requireAuth = async () => {
     try {
-        return await getMe();
+        return applyProfileOverride(await getMe());
     } catch (err) {
         // 401만 "로그인 안 됨" — 조용히 로그인으로
         if (err?.status === 401) {

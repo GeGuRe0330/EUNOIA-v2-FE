@@ -17,6 +17,7 @@ import {
     applyDeletionsToSummary,
 } from "./mock/entryListFixtures";
 import { readDeletedIds, isEntryDeleted, markEntryDeleted } from "./mock/deletedEntries";
+import { applyProfileOverride, writeProfileOverride } from "./mock/profileOverride";
 
 // 감정 분석 API prefix
 const ANALYSIS_PREFIX = "/analyses";
@@ -110,8 +111,28 @@ const isEmptyScenario = () => readMockScenario() === "empty";
 // 내 프로필 — 실제로는 GET /members/me에 createdAt이 추가돼 이 호출 하나로 끝난다(백엔드 요청 전).
 // 지금은 실제 /members/me(닉네임·성별)에 더미 createdAt만 덧붙인다
 export const getMyProfile = async () => {
-    const me = await getMe();
+    const me = applyProfileOverride(await getMe());
     return { ...me, createdAt: MOCK_JOINED_AT };
+};
+
+// ===== [MOCK] 프로필 설정(⑨) — 저장이 서버에 반영되지 않는다 =====
+// 실제로는 PATCH /members/me (닉네임·성별·나이, 응답은 갱신된 MemberResponse),
+// PUT /members/me/password ({ currentPassword, newPassword }, 현재 비밀번호가 틀리면 401이 아니라 400/409 + 해요체 문구).
+// 시나리오: ?mock=fail:profile | fail:password(서버 오류) | wrong-password(현재 비밀번호 불일치)
+export const updateMyProfile = async ({ nickname, gender, age }) => {
+    await mockDelay();
+    failIfScenario("profile");
+    writeProfileOverride({ nickname, gender, age });
+    return applyProfileOverride(await getMe());
+};
+
+export const changeMyPassword = async () => {
+    await mockDelay();
+    failIfScenario("password");
+    if (readMockScenario() === "wrong-password") {
+        throw { status: 400, message: "지금 쓰는 비밀번호가 맞지 않아요.", fieldErrors: [] };
+    }
+    return null;
 };
 
 // 기록 지표 — { totalEntryCount, monthEntryCount }. "이번 달"은 서버 시각 기준(앱 시간대, backend-requests.md 6번)

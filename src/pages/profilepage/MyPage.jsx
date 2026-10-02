@@ -63,14 +63,12 @@ const ProfileBlock = () => {
     );
 };
 
-// 설정 화면은 별도 브랜치(⑨)에서 만들 예정 — 그때 연결. 프로필 조회가 실패해도 접근할 수 있도록 프로필과 따로 둠
+// 프로필 설정(/myPage/profile)으로 가는 버튼 — 프로필 조회가 실패해도 접근할 수 있도록 프로필과 따로 둠
 const SettingsButton = () => (
-    <button
-        type="button"
-        disabled
-        aria-label="프로필 수정하기 (준비 중)"
-        title="준비 중이에요"
-        className="group shrink-0 inline-flex items-center gap-2 rounded-lg border-2 border-primary-dark/40 bg-white/60 px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-sm font-semibold text-textPrimary shadow-sm cursor-not-allowed transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-md hover:border-primary-dark/70 lg:order-3"
+    <Link
+        to="/myPage/profile"
+        aria-label="프로필 수정하기"
+        className="group shrink-0 inline-flex items-center gap-2 rounded-lg border-2 border-primary-dark/40 bg-white/60 px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-sm font-semibold text-textPrimary shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-md hover:border-primary-dark/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark/60 lg:order-3"
     >
         <span
             aria-hidden="true"
@@ -80,7 +78,7 @@ const SettingsButton = () => (
         </span>
         {/* 좁은 화면에서는 아이콘만 — 글자는 aria-label이 대신 읽어줌 */}
         <span className="hidden sm:inline">프로필 수정하기</span>
-    </button>
+    </Link>
 );
 
 const StatCard = ({ label, status, message, onRetry, children }) => (
