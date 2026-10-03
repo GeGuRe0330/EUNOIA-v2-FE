@@ -5,7 +5,12 @@ import { createMemoryRouter, RouterProvider, Outlet } from "react-router-dom";
 import { NOTICE_DURATION_MS, PROFILE_COPY } from "./profileSettingsView";
 
 // 실제로 렌더해 저장 흐름을 확인한다 — API만 가짜로 대체하고, Layout 로더(me)는 라우터에 붙여 revalidate가 실제로 도는지 본다
-vi.mock("../../api/EunoiaApi", () => ({ updateMyProfile: vi.fn(), changeMyPassword: vi.fn() }));
+vi.mock("../../api/EunoiaApi", () => ({
+    updateMyProfile: vi.fn(),
+    changeMyPassword: vi.fn(),
+    uploadProfileImage: vi.fn(),
+    deleteProfileImage: vi.fn(),
+}));
 
 import { updateMyProfile, changeMyPassword } from "../../api/EunoiaApi";
 import ProfileSettingsPage from "./ProfileSettingsPage";
@@ -63,6 +68,8 @@ describe("ProfileSettingsPage", () => {
     };
     const saveButton = (text) => [...container.querySelectorAll("button[type=submit]")].find((b) => b.textContent === text);
     const infoForm = () => container.querySelector("form[novalidate]");
+    // 저장 안내 영역 — 기본 정보 카드에는 프로필 이미지 영역의 안내(role=status)도 있어서, 각 폼의 마지막 것(저장 버튼 위의 안내)을 쓴다
+    const lastStatus = (form) => [...form.querySelectorAll("[role=status]")].at(-1);
     const passwordForm = () => container.querySelectorAll("form[novalidate]")[1];
 
     beforeEach(async () => {
@@ -118,7 +125,7 @@ describe("ProfileSettingsPage", () => {
 
         expect(updateMyProfile).toHaveBeenCalledWith({ nickname: "두꺼비", gender: "MALE", age: 28 });
         expect(loader).toHaveBeenCalledTimes(1); // 내비게이션이 새 닉네임을 받도록 Layout 로더를 다시 부름
-        expect(container.querySelector("[role=status]").textContent).toBe(PROFILE_COPY.infoSaved);
+        expect(lastStatus(infoForm()).textContent).toBe(PROFILE_COPY.infoSaved);
         expect(input("닉네임").value).toBe("두꺼비");
         expect(saveButton(PROFILE_COPY.infoSave).disabled).toBe(true); // 새 기준값과 같아졌으니 다시 막힘
     });
@@ -128,7 +135,7 @@ describe("ProfileSettingsPage", () => {
             me = { ...me, ...payload };
             return me;
         });
-        const status = () => container.querySelector("[role=status]");
+        const status = () => lastStatus(infoForm());
 
         await type(input("닉네임"), "두꺼비");
         await submit(infoForm());
@@ -204,7 +211,7 @@ describe("ProfileSettingsPage", () => {
 
         expect(changeMyPassword).toHaveBeenCalledWith({ currentPassword: "oldpw", newPassword: "newpw" });
         expect(input("지금 쓰는 비밀번호").value).toBe("");
-        expect(container.querySelectorAll("[role=status]")[1].textContent).toBe(PROFILE_COPY.passwordSaved);
+        expect(lastStatus(passwordForm()).textContent).toBe(PROFILE_COPY.passwordSaved);
         expect(router.state.location.pathname).toBe("/myPage/profile");
     });
 

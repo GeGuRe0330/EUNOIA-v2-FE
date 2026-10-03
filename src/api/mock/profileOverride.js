@@ -1,5 +1,5 @@
 // [MOCK] 프로필 설정 더미 — 백엔드 구현 전까지만 쓰고 연동(⑩)에서 제거한다.
-// 실제 /members/me에는 변경 API가 없어서, 저장한 닉네임·성별·나이를 sessionStorage에 기억했다가 me에 덧씌운다.
+// 실제 /members/me에는 변경 API가 없어서, 저장한 닉네임·성별·나이(와 ⑨-2의 profileImageId)를 sessionStorage에 기억했다가 me에 덧씌운다.
 // 그래야 내비게이션(Layout 로더)·마이페이지·프로필 설정이 같은 값을 보여 "저장하면 곧바로 반영"을 화면에서 확인할 수 있다.
 const KEY = "eunoia:mock:profile-override";
 const GENDERS = ["MALE", "FEMALE", "NONE"];
@@ -19,6 +19,10 @@ const sanitize = (raw) => {
     if (typeof raw.nickname === "string" && raw.nickname.trim()) out.nickname = raw.nickname;
     if (GENDERS.includes(raw.gender)) out.gender = raw.gender;
     if (Number.isInteger(raw.age) && raw.age >= 0) out.age = raw.age;
+    // 프로필 이미지(⑨-2) — 문자열(UUID) 또는 null(기본 이미지로 되돌림). null도 "서버 값을 덮는" 유효한 값이다
+    if (raw.profileImageId === null || (typeof raw.profileImageId === "string" && raw.profileImageId.trim())) {
+        out.profileImageId = raw.profileImageId;
+    }
     return out;
 };
 

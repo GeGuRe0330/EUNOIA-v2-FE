@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useRevalidator, useRouteLoaderData } from "react-router-dom";
+import ProfileImageSection from "./ProfileImageSection";
 import CardMotion from "../../components/motion/CardMotion";
-import ProfileAvatar from "../../components/common/ProfileAvatar";
 import { useApiError } from "../../hooks/useApiError";
+import { useNotice } from "../../hooks/useNotice";
 import { updateMyProfile, changeMyPassword } from "../../api/EunoiaApi";
 import {
     GENDER_OPTIONS,
@@ -54,24 +55,8 @@ const Field = ({ label, error, children }) => {
     );
 };
 
-// 저장 결과 안내 — 잠깐 보이고 사라진다
-const useNotice = () => {
-    const [notice, setNotice] = useState(null);
-    const timerRef = useRef(null);
-
-    useEffect(() => () => clearTimeout(timerRef.current), []);
-
-    const show = (message) => {
-        clearTimeout(timerRef.current);
-        setNotice(message);
-        timerRef.current = setTimeout(() => setNotice(null), NOTICE_DURATION_MS);
-    };
-    const hide = () => {
-        clearTimeout(timerRef.current);
-        setNotice(null);
-    };
-    return { notice, show, hide };
-};
+// 저장 결과 안내 — 잠깐 보이고 사라진다(useNotice)
+const useSaveNotice = () => useNotice(NOTICE_DURATION_MS);
 
 const FormMessages = ({ errorMessage, notice }) => (
     <>
@@ -95,7 +80,7 @@ const FormMessages = ({ errorMessage, notice }) => (
 const InfoCard = ({ me }) => {
     const { revalidate } = useRevalidator();
     const { handleApiError } = useApiError();
-    const { notice, show, hide } = useNotice();
+    const { notice, show, hide } = useSaveNotice();
 
     const [form, setForm] = useState(() => toProfileForm(me));
     const [fieldErrors, setFieldErrors] = useState({});
@@ -147,12 +132,9 @@ const InfoCard = ({ me }) => {
             </h2>
 
             <form onSubmit={handleSubmit} noValidate className="space-y-4">
-                {/* 넓은 화면은 [아바타 | 닉네임·이메일] 두 칸 그리드, 좁은 화면은 아바타를 가운데 두고 위아래로 쌓음. 아바타 자리는 ⑨-2에서 [사진 변경]을 얹을 곳 */}
+                {/* 넓은 화면은 [아바타 | 닉네임·이메일] 두 칸 그리드, 좁은 화면은 아바타를 가운데 두고 위아래로 쌓음 */}
                 <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center sm:gap-6">
-                    {/* 고른 성별의 기본 이미지를 저장 전에 미리 보여줌. 좁은 화면에서는 가운데 */}
-                    <div className="flex justify-center sm:block">
-                        <ProfileAvatar gender={form.gender || me?.gender} sizeClass="w-28 h-28 sm:w-40 sm:h-40" />
-                    </div>
+                    <ProfileImageSection gender={form.gender || me?.gender} profileImageId={me?.profileImageId} />
 
                     <div className="min-w-0 space-y-4">
                         <Field label="닉네임" error={fieldErrors.nickname}>
@@ -230,7 +212,7 @@ const InfoCard = ({ me }) => {
 /* ② 비밀번호 변경 — 현재 비밀번호 + 새 비밀번호 + 확인. 현재 비밀번호가 틀려도 세션은 그대로(서버가 401을 주지 않는 계약) */
 const PasswordCard = () => {
     const { handleApiError } = useApiError();
-    const { notice, show, hide } = useNotice();
+    const { notice, show, hide } = useSaveNotice();
 
     const [form, setForm] = useState(EMPTY_PASSWORD_FORM);
     const [fieldErrors, setFieldErrors] = useState({});

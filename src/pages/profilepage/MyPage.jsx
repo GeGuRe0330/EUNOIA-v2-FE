@@ -51,7 +51,7 @@ const ProfileBlock = () => {
 
             {status === "ready" && (
                 <div className="flex items-center gap-4 min-w-0">
-                    <ProfileAvatar gender={profile.gender} sizeClass="w-24 h-24" />
+                    <ProfileAvatar gender={profile.gender} profileImageId={profile.profileImageId} sizeClass="w-24 h-24" />
 
                     <div className="min-w-0">
                         <h1 className="text-xl font-semibold text-textPrimary truncate">{profile.nickname}</h1>

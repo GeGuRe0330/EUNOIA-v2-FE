@@ -38,7 +38,7 @@ const SidebarNav = ({ me, onLogout }) => {
             {/* User box */}
             <div className="mb-6 rounded-lg bg-white/40 p-3 text-sm text-center border-2 border-primary-dark/40">
                 <div className="flex justify-center mb-2">
-                    <ProfileAvatar gender={me?.gender} sizeClass="w-24 h-24" />
+                    <ProfileAvatar gender={me?.gender} profileImageId={me?.profileImageId} sizeClass="w-24 h-24" />
                 </div>
 
                 <div className="font-semibold">

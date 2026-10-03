@@ -18,6 +18,7 @@ import {
 } from "./mock/entryListFixtures";
 import { readDeletedIds, isEntryDeleted, markEntryDeleted } from "./mock/deletedEntries";
 import { applyProfileOverride, writeProfileOverride } from "./mock/profileOverride";
+import { blobToDataUrl, saveMockProfileImage, clearMockProfileImage } from "./mock/profileImages";
 
 // 감정 분석 API prefix
 const ANALYSIS_PREFIX = "/analyses";
@@ -123,6 +124,27 @@ export const updateMyProfile = async ({ nickname, gender, age }) => {
     await mockDelay();
     failIfScenario("profile");
     writeProfileOverride({ nickname, gender, age });
+    return applyProfileOverride(await getMe());
+};
+
+// ===== [MOCK] 프로필 이미지(⑨-2) — 올린 이미지가 서버에 올라가지 않는다 =====
+// 실제로는 PUT /members/me/profile-image(멀티파트, 파트 이름 "file" = 편집이 끝난 512×512 JPEG), DELETE /members/me/profile-image.
+// 둘 다 응답은 갱신된 MemberResponse(새 profileImageId, 되돌리면 null)이고 이미지는 GET /members/me/profile-image/{uuid}로 서빙된다.
+// 시나리오: ?mock=fail:image-upload | fail:image-delete
+export const uploadProfileImage = async (blob) => {
+    await mockDelay();
+    failIfScenario("image-upload");
+    const id = saveMockProfileImage(await blobToDataUrl(blob));
+    if (!id) throw { status: 500, message: "서버에 오류가 발생했어요.", fieldErrors: [] };
+    writeProfileOverride({ profileImageId: id });
+    return applyProfileOverride(await getMe());
+};
+
+export const deleteProfileImage = async () => {
+    await mockDelay();
+    failIfScenario("image-delete");
+    clearMockProfileImage();
+    writeProfileOverride({ profileImageId: null });
     return applyProfileOverride(await getMe());
 };
 
