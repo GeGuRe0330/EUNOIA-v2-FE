@@ -126,7 +126,7 @@ const MobileDrawer = ({ open, onClose, me, onLogout }) => {
                 {/* 유저 박스 */}
                 <div className="mt-6 rounded-2xl bg-white/45 p-4 text-center border-2 border-primary-dark/40">
                     <div className="flex justify-center mb-3">
-                        <ProfileAvatar gender={me?.gender} sizeClass="w-28 h-28" />
+                        <ProfileAvatar gender={me?.gender} profileImageId={me?.profileImageId} sizeClass="w-28 h-28" />
                     </div>
 
                     <div className="font-sans font-semibold text-textPrimary">

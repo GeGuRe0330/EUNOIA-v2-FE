@@ -27,6 +27,25 @@ export const PROFILE_COPY = {
     passwordSaved: "비밀번호를 바꿨어요.",
     samePassword: "지금 쓰는 비밀번호와 다르게 정해 주세요.",
     currentRequired: "지금 쓰는 비밀번호를 입력해 주세요.",
+    // 프로필 이미지(⑨-2)
+    imageChange: "사진 변경",
+    imageReset: "기본 이미지로 되돌리기",
+    imageSaved: "프로필 이미지를 바꿨어요.",
+    imageResetDone: "기본 이미지로 되돌렸어요.",
+    cropTitle: "사진 위치 조정",
+    cropHint: "사진을 끌어서 위치를, 슬라이더로 크기를 맞춰 보세요.",
+    cropKeyHint: "화살표 키로 이동, + − 키로 확대할 수 있어요.",
+    cropViewLabel: "사진 위치 조정 영역",
+    cropZoomLabel: "확대",
+    cropCancel: "취소",
+    cropApply: "적용하기",
+    cropApplying: "올리는 중…",
+    cropRenderFailed: "사진을 만들지 못했어요. 다시 시도해 주세요.",
+    cropLoading: "사진을 불러오는 중…",
+    resetTitle: "기본 이미지로 되돌릴까요?",
+    resetDescription: "올려 둔 사진은 사라져요.",
+    resetConfirm: "되돌리기",
+    resetBusy: "되돌리는 중…",
 };
 
 export const NOTICE_DURATION_MS = 3000;
