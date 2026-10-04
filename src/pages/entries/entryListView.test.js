@@ -169,8 +169,8 @@ describe("applyRangeToParams", () => {
     });
 
     it("다른 쿼리는 건드리지 않는다", () => {
-        const next = applyRangeToParams(new URLSearchParams("mock=empty"), { from: "2026-10-01", to: null });
-        expect(next.get("mock")).toBe("empty");
+        const next = applyRangeToParams(new URLSearchParams("tab=recent"), { from: "2026-10-01", to: null });
+        expect(next.get("tab")).toBe("recent");
         expect(next.get("from")).toBe("2026-10-01");
     });
 

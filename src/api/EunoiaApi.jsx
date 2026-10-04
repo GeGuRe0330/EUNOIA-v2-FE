@@ -1,24 +1,5 @@
 import { api, unwrap } from "./defaultApi";
 import { getMe } from "./authApi";
-import {
-    MOCK_JOINED_AT,
-    readMockScenario,
-    buildSummary,
-    buildCalendarMonth,
-    currentYearMonth,
-} from "./mock/myPageFixtures";
-import { buildMockEntryDetail, buildMockAnalysis } from "./mock/entryDetailFixtures";
-import {
-    isMockEntryId,
-    buildAllEntries,
-    pageEntries,
-    withoutDeleted,
-    applyDeletionsToCalendar,
-    applyDeletionsToSummary,
-} from "./mock/entryListFixtures";
-import { readDeletedIds, isEntryDeleted, markEntryDeleted } from "./mock/deletedEntries";
-import { applyProfileOverride, writeProfileOverride } from "./mock/profileOverride";
-import { blobToDataUrl, saveMockProfileImage, clearMockProfileImage } from "./mock/profileImages";
 
 // 감정 분석 API prefix
 const ANALYSIS_PREFIX = "/analyses";
@@ -36,17 +17,9 @@ export const getEmotionScores = async () => {
     return unwrap(res);
 };
 
-// 일기별 분석 결과 조회(폴링용) — 처리 중이면 404, 완료되면 200(status SUCCESS | FAILED)
+// 일기별 분석 결과 조회(폴링용) — 처리 중이면 404("아직 분석 결과가 없어요."), 완료되면 200(status SUCCESS | FAILED)
+// 삭제된 글의 분석도 404 — 상세 화면은 일기 단건 조회의 404("없는 글")를 먼저 처리하므로 그 화면에서는 보이지 않는다
 export const getAnalysisByEntry = async (entryId) => {
-    // [MOCK] 더미 글(id 900001~)은 분석도 더미로 — 성공·실패(FAILED)·처리 중(404)을 섞어 돌려준다. 연동(⑩) 때 이 블록을 지운다
-    if (isMockEntryId(entryId)) {
-        const entry = buildAllEntries().find((candidate) => candidate.id === entryId);
-        await mockDelay();
-        const analysis = entry && !isEntryDeleted(entryId) ? buildMockAnalysis(entry) : null;
-        if (analysis === null) throw { status: 404, message: "아직 분석 결과가 없어요.", fieldErrors: [] };
-        return analysis;
-    }
-
     const res = await api.get(`${ANALYSIS_PREFIX}/by-entry/${entryId}`);
     return unwrap(res);
 };
@@ -57,18 +30,8 @@ export const postEmotionEntry = async (entryObj) => {
     return unwrap(res);
 };
 
-// 감정글 단건 조회 — { id, memberId, content, entryDate }. 없는 글이면 404("존재하지 않는 감정글이에요."), 남의 글이면 403("해당 감정글에 대한 접근 권한이 없어요.")
+// 감정글 단건 조회 — { id, memberId, content, entryDate }. 없는 글·삭제된 글이면 404("존재하지 않는 감정글이에요."), 남의 글이면 403("해당 감정글에 대한 접근 권한이 없어요.")
 export const getEmotionEntry = async (entryId) => {
-    // [MOCK] 더미 단계에서 지운 글은 서버가 아직 모르므로 여기서 "없는 글"(404)로 처리하고, 더미 글(id 900001~)은 서버가 아니라 더미로 연다
-    // 실제 id는 그대로 서버로 간다 — 연동(⑩) 때 이 [MOCK] 블록을 지운다
-    if (isEntryDeleted(entryId)) throw { status: 404, message: "존재하지 않는 감정글이에요.", fieldErrors: [] };
-    if (isMockEntryId(entryId)) {
-        const entry = buildAllEntries().find((candidate) => candidate.id === entryId);
-        await mockDelay();
-        if (!entry) throw { status: 404, message: "존재하지 않는 감정글이에요.", fieldErrors: [] };
-        return buildMockEntryDetail(entry);
-    }
-
     const res = await api.get(`/emotion-entries/${entryId}`);
     return unwrap(res);
 };
@@ -91,125 +54,81 @@ export const getMetaHistory = async () => {
     return unwrap(res);
 };
 
-// ===== [MOCK] 마이페이지·열람 — 백엔드 구현 전 더미 =====
-// 실제 응답과 같은 모양을 돌려주고, 화면 코드는 이 함수들만 호출한다.
-// 연동(⑩ common/records-integration) 때는 각 함수 안만 api.get(...) + unwrap으로 바꾸고 이 구간과 mock/ 폴더를 지운다.
-// 응답 모양 초안: 작업 문서 06.identity_my-page.md
+// ===== 마이페이지·열람·프로필 (백엔드 ⑮~⑱) =====
+// 실제 반영 결과와 요청서(api-spec.md)가 다르면 backend-handoff-personalization.md가 맞다
 
-const MOCK_LATENCY_MS = 250;
+// 내 프로필 — { id, email, nickname, age, gender, role, createdAt, profileImageId }
+// createdAt은 소수 초가 붙을 수 있고(날짜 부분만 쓴다), profileImageId는 UUID 또는 null(기본 이미지)
+export const getMyProfile = async () => getMe();
 
-const mockDelay = () => new Promise((resolve) => setTimeout(resolve, MOCK_LATENCY_MS));
-
-// 시나리오가 해당 섹션 실패를 가리키면 normalizeApiError와 같은 모양으로 던진다
-const failIfScenario = (section) => {
-    if (readMockScenario() === `fail:${section}`) {
-        throw { status: 500, message: "서버에 오류가 발생했어요.", fieldErrors: [] };
-    }
-};
-
-const isEmptyScenario = () => readMockScenario() === "empty";
-
-// 내 프로필 — 실제로는 GET /members/me에 createdAt이 추가돼 이 호출 하나로 끝난다(백엔드 요청 전).
-// 지금은 실제 /members/me(닉네임·성별)에 더미 createdAt만 덧붙인다
-export const getMyProfile = async () => {
-    const me = applyProfileOverride(await getMe());
-    return { ...me, createdAt: MOCK_JOINED_AT };
-};
-
-// ===== [MOCK] 프로필 설정(⑨) — 저장이 서버에 반영되지 않는다 =====
-// 실제로는 PATCH /members/me (닉네임·성별·나이, 응답은 갱신된 MemberResponse),
-// PUT /members/me/password ({ currentPassword, newPassword }, 현재 비밀번호가 틀리면 401이 아니라 400/409 + 해요체 문구).
-// 시나리오: ?mock=fail:profile | fail:password(서버 오류) | wrong-password(현재 비밀번호 불일치)
-export const updateMyProfile = async ({ nickname, gender, age }) => {
-    await mockDelay();
-    failIfScenario("profile");
-    writeProfileOverride({ nickname, gender, age });
-    return applyProfileOverride(await getMe());
-};
-
-// ===== [MOCK] 프로필 이미지(⑨-2) — 올린 이미지가 서버에 올라가지 않는다 =====
-// 실제로는 PUT /members/me/profile-image(멀티파트, 파트 이름 "file" = 편집이 끝난 512×512 JPEG), DELETE /members/me/profile-image.
-// 둘 다 응답은 갱신된 MemberResponse(새 profileImageId, 되돌리면 null)이고 이미지는 GET /members/me/profile-image/{uuid}로 서빙된다.
-// 시나리오: ?mock=fail:image-upload | fail:image-delete
-export const uploadProfileImage = async (blob) => {
-    await mockDelay();
-    failIfScenario("image-upload");
-    const id = saveMockProfileImage(await blobToDataUrl(blob));
-    if (!id) throw { status: 500, message: "서버에 오류가 발생했어요.", fieldErrors: [] };
-    writeProfileOverride({ profileImageId: id });
-    return applyProfileOverride(await getMe());
-};
-
-export const deleteProfileImage = async () => {
-    await mockDelay();
-    failIfScenario("image-delete");
-    clearMockProfileImage();
-    writeProfileOverride({ profileImageId: null });
-    return applyProfileOverride(await getMe());
-};
-
-export const changeMyPassword = async () => {
-    await mockDelay();
-    failIfScenario("password");
-    if (readMockScenario() === "wrong-password") {
-        throw { status: 400, message: "지금 쓰는 비밀번호가 맞지 않아요.", fieldErrors: [] };
-    }
-    return null;
-};
-
-// 기록 지표 — { totalEntryCount, monthEntryCount }. "이번 달"은 서버 시각 기준(앱 시간대, backend-requests.md 6번)
+// 기록 지표 — { totalEntryCount, monthEntryCount }. 삭제된 글 제외, "이번 달"은 서버(KST) 기준
 export const getMyRecordSummary = async () => {
-    await mockDelay();
-    failIfScenario("summary");
-    if (isEmptyScenario()) return { totalEntryCount: 0, monthEntryCount: 0 };
-    return applyDeletionsToSummary(buildSummary(), deletedEntries(), currentYearMonth());
+    const res = await api.get(`/emotion-entries/summary`);
+    return unwrap(res);
 };
 
 // 월별 감정 캘린더 — 글이 있는 날만: { yearMonth: "YYYY-MM", days: [{ date, entryCount, averageScore | null }] }
 // averageScore는 그날 SUCCESS 분석 emotionScore(0~100)의 평균, 분석이 없거나 FAILED뿐이면 null
 export const getEmotionCalendar = async (yearMonth) => {
-    await mockDelay();
-    failIfScenario("calendar");
-    if (isEmptyScenario()) return { yearMonth, days: [] };
-    return applyDeletionsToCalendar(buildCalendarMonth(yearMonth), deletedEntries());
+    const res = await api.get(`/emotion-entries/calendar`, { params: { yearMonth } });
+    return unwrap(res);
+};
+
+// 감정글 목록(열람 화면) — 최신순(entryDate 내림차순, 같은 날은 id 내림차순), 조회 기간 필터 · 페이지 나누기
+// 요청: { from?, to?: "YYYY-MM-DD"(둘 다 그 날 포함, 한쪽만 줘도 됨), page?: 0부터, size?: 1~50, 기본 10 }
+// 응답: { items: [{ id, entryDate, content(전문), emotionDetected | null }], page, size, hasNext } — 글이 없으면 items가 빈 배열(404 아님)
+// emotionDetected는 SUCCESS 분석의 대표 감정, 분석이 없거나(방금 쓴 글은 수 초간) FAILED면 null
+// 비어 있는 from·to는 보내지 않는다 — 빈 문자열이 가면 서버가 날짜 형식 오류(400)로 처리한다
+export const getEmotionEntries = async ({ from, to, page = 0, size = 10 } = {}) => {
+    const params = { page, size };
+    if (from) params.from = from;
+    if (to) params.to = to;
+
+    const res = await api.get(`/emotion-entries`, { params });
+    return unwrap(res);
 };
 
 // 최근 감정글 — 최신순 [{ id, entryDate, content, emotionDetected | null }], 없으면 빈 배열
-// 열람 목록 더미의 앞부분을 그대로 쓴다(api-spec: /recent는 목록의 size=5와 같은 항목 모양) — 목록·캘린더와 항상 같은 글이고, 지운 글도 함께 빠진다
+// 서버에 /recent 엔드포인트는 없다 — 목록의 첫 페이지(size=limit, 1~50)의 items가 같은 항목 모양이다
 export const getRecentEntries = async (limit = 5) => {
-    await mockDelay();
-    failIfScenario("recent");
-    if (isEmptyScenario()) return [];
-    return pageEntries(visibleEntries(), { page: 0, size: limit }).items;
+    const { items } = await getEmotionEntries({ page: 0, size: limit });
+    return items;
 };
 
-// 감정글 목록(열람 화면) — 최신순, 조회 기간 필터 · 페이지 나누기
-// 요청: { from?: "YYYY-MM-DD", to?: "YYYY-MM-DD"(둘 다 그 날 포함, 한쪽만 줘도 됨, 하루는 from=to), page?: 0부터, size?: 기본 10 } / 응답: { items: [{ id, entryDate, content, emotionDetected | null }], page, size, hasNext }
-// 글이 없으면 items가 빈 배열(404 아님). emotionDetected는 SUCCESS 분석의 대표 감정, 분석이 없거나 FAILED면 null
-export const getEmotionEntries = async ({ from, to, page = 0, size = 10 } = {}) => {
-    await mockDelay();
-    failIfScenario("list");
-    if (page > 0) failIfScenario("more");
-    if (isEmptyScenario()) return { items: [], page, size, hasNext: false };
-    return pageEntries(visibleEntries(), { from, to, page, size });
-};
-
-// 감정글 삭제 — 백엔드는 소프트 삭제(삭제 표시만 하고 모든 조회에서 제외)로 구현될 예정. 응답: 바디 없는 성공(null)
-// 없는 글·이미 삭제된 글은 404("존재하지 않는 감정글이에요."), 남의 글은 403(해당 감정글에 대한 접근 권한이 없어요.) — 단건 조회와 같은 규칙
-// 지금은 지운 id만 기억해 더미 목록·캘린더·지표·최근 글·상세에서 뺀다(실제 서버의 글은 지워지지 않음)
+// 감정글 삭제(소프트 삭제 — 모든 조회에서 사라지고 분석도 비동기로 함께 삭제됨). 응답: 바디 없는 성공(null)
+// 없는 글·이미 삭제된 글은 404("존재하지 않는 감정글이에요."), 남의 글은 403("해당 감정글에 대한 접근 권한이 없어요.")
 export const deleteEmotionEntry = async (entryId) => {
-    await mockDelay();
-    failIfScenario("delete");
-    if (isEntryDeleted(entryId)) throw { status: 404, message: "존재하지 않는 감정글이에요.", fieldErrors: [] };
-
-    markEntryDeleted(entryId);
-    return null;
+    const res = await api.delete(`/emotion-entries/${entryId}`);
+    return unwrap(res);
 };
 
-// 지운 글을 뺀 더미 목록 / 지운 글만 모은 목록(캘린더·지표 보정용)
-const visibleEntries = () => withoutDeleted(buildAllEntries(), readDeletedIds());
+// 프로필 수정 — 닉네임·성별·나이 세 필드를 모두 보내는 전체 교체(부분 수정 아님). 응답: 갱신된 회원 정보
+// 닉네임 앞뒤 공백은 서버가 지우지 않으므로 호출하는 쪽이 trim해서 보낸다
+export const updateMyProfile = async ({ nickname, gender, age }) => {
+    const res = await api.patch(`/members/me`, { nickname, gender, age });
+    return unwrap(res);
+};
 
-const deletedEntries = () => {
-    const deleted = new Set(readDeletedIds());
-    return buildAllEntries().filter((entry) => deleted.has(entry.id));
+// 비밀번호 변경 — 현재 비밀번호가 틀리면 401이 아니라 400("지금 쓰는 비밀번호가 맞지 않아요.")이라 로그인 화면으로 보내지 않는다. 성공해도 세션은 유지된다
+// 비밀번호 확인 칸은 프론트에서만 검사하고 서버로 보내지 않는다
+export const changeMyPassword = async ({ currentPassword, newPassword }) => {
+    const res = await api.put(`/members/me/password`, { currentPassword, newPassword });
+    return unwrap(res);
+};
+
+// 프로필 이미지 업로드 — 편집이 끝난 512×512 JPEG를 멀티파트(파트 이름 "file")로 보낸다. 응답: 갱신된 회원 정보(새 profileImageId)
+// Content-Type 헤더는 직접 지정하지 않는다 — multipart의 boundary는 브라우저가 FormData로 만들어야 하고, 직접 지정하면 서버가 파트를 못 읽어 400이 된다
+// 서버는 JPEG·PNG만 받고(WebP 거절) 항상 512×512 JPEG로 다시 만든다. 형식·내용 오류는 400("올릴 수 없는 사진이에요."), 10MB 초과는 413
+export const uploadProfileImage = async (blob) => {
+    const form = new FormData();
+    form.append("file", blob, "profile.jpg");
+
+    const res = await api.put(`/members/me/profile-image`, form);
+    return unwrap(res);
+};
+
+// 기본 이미지로 되돌리기 — 이미 없어도 200(멱등). 응답: 갱신된 회원 정보(profileImageId: null)
+export const deleteProfileImage = async () => {
+    const res = await api.delete(`/members/me/profile-image`);
+    return unwrap(res);
 };

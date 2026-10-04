@@ -132,13 +132,13 @@ describe("listSnapshot", () => {
         });
 
         it("스냅샷이 아닌 다른 저장값은 건드리지 않는다", () => {
-            sessionStorage.setItem("eunoia:mock:deleted-entry-ids", "[1]");
+            sessionStorage.setItem("eunoia:other-key", "[1]");
             sessionStorage.setItem("other", "x");
             saveListSnapshot(KEY, data, 1_000);
 
             clearListSnapshots();
 
-            expect(sessionStorage.getItem("eunoia:mock:deleted-entry-ids")).toBe("[1]");
+            expect(sessionStorage.getItem("eunoia:other-key")).toBe("[1]");
             expect(sessionStorage.getItem("other")).toBe("x");
         });
 
