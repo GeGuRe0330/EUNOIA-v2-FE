@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Settings } from "lucide-react";
 import CardMotion from "../../components/motion/CardMotion";
 import { useAsyncSection } from "../../hooks/useAsyncSection";
 import {
@@ -70,12 +71,11 @@ const SettingsButton = () => (
         aria-label="프로필 수정하기"
         className="group shrink-0 inline-flex items-center gap-2 rounded-lg border-2 border-primary-dark/40 bg-white/60 px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-sm font-semibold text-textPrimary shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:bg-white/80 hover:shadow-md hover:border-primary-dark/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-dark/60 lg:order-3"
     >
-        <span
+        {/* 글자(⚙)가 아니라 SVG — 모바일 OS가 ⚙를 색 있는 이모지로 바꿔 그리는 것을 피한다 */}
+        <Settings
             aria-hidden="true"
-            className="text-2xl leading-none transition-transform duration-300 group-hover:rotate-90"
-        >
-            ⚙
-        </span>
+            className="h-6 w-6 transition-transform duration-300 group-hover:rotate-90"
+        />
         {/* 좁은 화면에서는 아이콘만 — 글자는 aria-label이 대신 읽어줌 */}
         <span className="hidden sm:inline">프로필 수정하기</span>
     </Link>

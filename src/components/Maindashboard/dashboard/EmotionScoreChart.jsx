@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Frown, Smile } from 'lucide-react';
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
-import { formatEntryDate } from './chartData';
+import { formatEntryDate, iconCenterY, SCORE_DOMAIN } from './chartData';
 
 function useIsMobile(breakpoint = 640) {
     const [isMobile, setIsMobile] = useState(
@@ -17,6 +18,35 @@ function useIsMobile(breakpoint = 640) {
 
     return isMobile;
 }
+
+// Y축 눈금 — 점수 25(가라앉은 쪽)·75(편안한 쪽) 눈금에 찡그린·웃는 얼굴 아이콘을 그리고 나머지 눈금은 비운다
+// 예전에는 컬러 이모지(😰😌)를 글자로 썼는데 차트의 갈색 톤과 따로 놀아서, 같은 의미를 단색 SVG(lucide)로 바꿨다
+// 눈금 선(0·25·50·75·100)은 그대로 두고 아이콘만 가장자리 쪽으로 옮겼다 — 눈금 칸 기준으로 맨 아래 칸(0~25)과 맨 위 칸(75~100)의 한가운데(점수 12.5·87.5)에 놓아 너무 정갈하게 가운데 몰리지 않게 한다
+const TICK_ICONS = {
+    25: { Icon: Frown, at: 12.5 },
+    75: { Icon: Smile, at: 87.5 },
+};
+const TICK_ICON_SIZE = 20;
+// Y축 폭 = 아이콘 + 눈금 선과의 간격(4) + 여유 — 아이콘 크기를 바꿔도 잘리지 않게 크기에서 계산한다
+const Y_AXIS_WIDTH = TICK_ICON_SIZE + 12;
+const TICK_COLOR = '#7F5539'; // textSecondary
+
+// recharts가 눈금마다 x·y(눈금 라벨의 오른쪽 끝)·height(축 길이)·payload(값)를 넘겨 준다. 차트 안은 SVG라 lucide 아이콘을 그대로 그릴 수 있다
+export const ScoreTick = ({ x, y, height, payload }) => {
+    const config = TICK_ICONS[payload?.value];
+    if (!config) return null;
+
+    const { Icon, at } = config;
+    return (
+        <Icon
+            x={x - TICK_ICON_SIZE - 4}
+            y={iconCenterY({ y, height, value: payload.value, at }) - TICK_ICON_SIZE / 2}
+            size={TICK_ICON_SIZE}
+            color={TICK_COLOR}
+            aria-hidden="true"
+        />
+    );
+};
 
 const EmotionScoreChart = ({ data }) => {
     const isMobile = useIsMobile();
@@ -65,10 +95,10 @@ const EmotionScoreChart = ({ data }) => {
                         />
 
                         <YAxis
-                            domain={[0, 100]}
+                            domain={SCORE_DOMAIN}
                             ticks={[0, 25, 50, 75, 100]}
-                            tickFormatter={(v) => ({ 25: "😰", 75: "😌" }[v] || "")}
-                            width={22}
+                            tick={(props) => <ScoreTick {...props} />}
+                            width={Y_AXIS_WIDTH}
                         />
 
                         <Tooltip labelFormatter={(_, payload) => formatEntryDate(payload?.[0]?.payload?.entryDate)} />

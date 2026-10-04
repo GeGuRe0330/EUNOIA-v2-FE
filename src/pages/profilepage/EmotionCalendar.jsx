@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { entriesPathForDate } from "../../utils/entryView";
 import {
     buildMonthGrid,
@@ -32,8 +33,9 @@ const NO_SCORE_CLASS = "bg-white/40 border-dashed border-primary-dark/50 text-te
 const CLICKABLE_CLASS =
     "cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md hover:border-primary-dark/60";
 
+// 월 이동 화살표는 글자(◀ ▶)가 아니라 SVG — 모바일 OS가 이 문자들을 색 있는 이모지로 바꿔 그리는 것을 피한다
 const NAV_BUTTON_CLASS =
-    "rounded-lg border border-primary-dark/20 px-3 py-1.5 text-sm text-textSecondary " +
+    "inline-flex items-center justify-center rounded-lg border border-primary-dark/20 px-3 py-1.5 text-sm text-textSecondary " +
     "hover:bg-primary-light/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent";
 
 const DayCell = ({ cell, info, isToday, isFuture }) => {
@@ -93,7 +95,7 @@ const EmotionCalendar = ({ yearMonth, days, loading, canNext, onPrev, onNext }) 
         <div aria-busy={loading}>
             <div className="flex items-center justify-between mb-4">
                 <button type="button" onClick={onPrev} aria-label="이전 달" className={NAV_BUTTON_CLASS}>
-                    ◀
+                    <ChevronLeft aria-hidden="true" className="h-5 w-5" />
                 </button>
 
                 <h2 aria-live="polite" className="text-lg font-semibold text-textPrimary">
@@ -107,7 +109,7 @@ const EmotionCalendar = ({ yearMonth, days, loading, canNext, onPrev, onNext }) 
                     aria-label="다음 달"
                     className={NAV_BUTTON_CLASS}
                 >
-                    ▶
+                    <ChevronRight aria-hidden="true" className="h-5 w-5" />
                 </button>
             </div>
 
