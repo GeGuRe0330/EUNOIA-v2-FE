@@ -4,6 +4,8 @@ import { useState } from "react";
 import { logout } from "../api/authApi";
 import MobileHeader from "../components/mobile/MobileHeader";
 import MobileDrawer from "../components/mobile/MobileDrawer";
+import ScrollToTop from "../components/common/ScrollToTop";
+import { shouldKeepScroll } from "../utils/listSnapshot";
 
 const Layout = () => {
     // 라우트 loader(requireAuth)가 세션 확인과 함께 반환한 내 정보
@@ -26,6 +28,7 @@ const Layout = () => {
     };
     return (
         <div className="flex min-h-screen">
+            <ScrollToTop shouldSkip={shouldKeepScroll} />
             <aside className="hidden md:block w-52 shrink-0">
                 <SidebarNav me={me} onLogout={handleLogout} />
             </aside>

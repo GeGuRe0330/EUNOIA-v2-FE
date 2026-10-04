@@ -77,8 +77,8 @@ const AnalysisProgress = ({ entryId }) => {
         return (
             <div className="flex flex-col items-center justify-center h-full px-4">
                 <NoticeCard
-                    title="분석이 오래 걸리고 있어요."
-                    message={'기록은 저장됐어요.\n분석이 끝나면 대시보드에 나타나요.'}
+                    title="EUNOIA가 글을 읽는 데 시간이 걸리고 있어요."
+                    message={'기록은 저장됐어요.\nEUNOIA가 다 읽으면 대시보드에 나타나요.'}
                 >
                     <Link to="/dashboard" replace className={primaryButton}>대시보드로</Link>
                 </NoticeCard>
@@ -100,7 +100,7 @@ const AnalysisProgress = ({ entryId }) => {
     if (view.name === 'error') {
         return (
             <div className="flex flex-col items-center justify-center h-full px-4">
-                <NoticeCard title="분석 결과를 확인하지 못했어요." message={view.message}>
+                <NoticeCard title="EUNOIA의 결과를 확인하지 못했어요." message={view.message}>
                     <button type="button" onClick={retry} className={primaryButton}>다시 확인하기</button>
                     <Link to="/dashboard" replace className={secondaryButton}>대시보드로</Link>
                 </NoticeCard>
@@ -115,7 +115,7 @@ const AnalysisProgress = ({ entryId }) => {
                 EUNOIA가 당신의 글을 읽고 있어요...
             </div>
             <div className="text-sm mb-10 text-gray-500">
-                여기까지 잘 걸어왔어요. 잠시만 기다려주세요 🤍
+                여기까지 잘 걸어왔어요. 잠시만 기다려주세요.
             </div>
 
             {/* 문구 자리 — 대기 문구와 따뜻한 말을 같은 자리에 겹쳐 두고 크로스페이드 */}

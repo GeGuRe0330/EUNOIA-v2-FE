@@ -1,16 +1,40 @@
 // 회원가입 폼의 순수 로직 — 화면(SignupPage)과 분리해 테스트 가능하게 둠
 
 // 입력 검증 문구는 프론트 담당(OVERVIEW §5.2) — 이메일 형식은 서버 기준에 맡김
+// 필드별 규칙 — 회원가입과 프로필 설정(⑨)이 같은 규칙을 쓰도록 하나씩 내보냄. 통과하면 undefined
+export const validateNickname = (nickname) =>
+    nickname.trim() ? undefined : '닉네임(표시 이름)을 입력해 주세요.';
+
+export const validatePassword = (password) => {
+    if (!password) return '비밀번호를 입력해 주세요.';
+    if (password.length < 4) return '비밀번호는 4자 이상이면 좋아요.';
+    return undefined;
+};
+
+export const validatePasswordConfirm = (password, passwordConfirm) =>
+    password === passwordConfirm ? undefined : '비밀번호 확인이 일치하지 않아요.';
+
+export const validateGender = (gender) => (gender ? undefined : '성별을 선택해 주세요.');
+
+export const validateAge = (age) => {
+    if (age === '' || age === null || age === undefined) return '나이를 입력해 주세요.';
+    if (!Number.isInteger(Number(age)) || Number(age) < 0) return '나이는 0 이상의 정수로 입력해 주세요.';
+    return undefined;
+};
+
 export const validateSignup = (form) => {
     const errors = {};
-    if (!form.nickname.trim()) errors.nickname = '닉네임(표시 이름)을 입력해 주세요.';
+    const nickname = validateNickname(form.nickname);
+    if (nickname) errors.nickname = nickname;
     if (!form.email.trim()) errors.email = '이메일을 입력해 주세요.';
-    if (!form.password) errors.password = '비밀번호를 입력해 주세요.';
-    else if (form.password.length < 4) errors.password = '비밀번호는 4자 이상이면 좋아요.';
-    if (form.password !== form.passwordConfirm) errors.passwordConfirm = '비밀번호 확인이 일치하지 않아요.';
-    if (!form.gender) errors.gender = '성별을 선택해 주세요.';
-    if (form.age === '') errors.age = '나이를 입력해 주세요.';
-    else if (!Number.isInteger(Number(form.age)) || Number(form.age) < 0) errors.age = '나이는 0 이상의 정수로 입력해 주세요.';
+    const password = validatePassword(form.password);
+    if (password) errors.password = password;
+    const passwordConfirm = validatePasswordConfirm(form.password, form.passwordConfirm);
+    if (passwordConfirm) errors.passwordConfirm = passwordConfirm;
+    const gender = validateGender(form.gender);
+    if (gender) errors.gender = gender;
+    const age = validateAge(form.age);
+    if (age) errors.age = age;
     return errors;
 };
 

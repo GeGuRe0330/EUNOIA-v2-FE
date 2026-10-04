@@ -15,6 +15,9 @@ const AdminPendingPage = lazy(() => import('../pages/admin/AdminPendingPage'));
 const RoadmapPage = lazy(() => import('../pages/roadmap/RoadmapPage'));
 const MetaAnalysisPage = lazy(() => import('../pages/meta/MetaAnalysisPage'));
 const MyPage = lazy(() => import('../pages/profilepage/MyPage'));
+const ProfileSettingsPage = lazy(() => import('../pages/profilepage/ProfileSettingsPage'));
+const EntryListPage = lazy(() => import('../pages/entries/EntryListPage'));
+const EntryDetailPage = lazy(() => import('../pages/entries/EntryDetailPage'));
 
 const root = createBrowserRouter([
     {
@@ -101,6 +104,26 @@ const root = createBrowserRouter([
                 path: 'myPage',
                 element: (
                     <MyPage />
+                )
+            },
+            {
+                path: 'myPage/profile',
+                element: (
+                    <Suspense fallback={<div>Loading...</div>}>
+                        <ProfileSettingsPage />
+                    </Suspense>
+                )
+            },
+            {
+                path: 'entries',
+                element: (
+                    <EntryListPage />
+                )
+            },
+            {
+                path: 'entries/:id',
+                element: (
+                    <EntryDetailPage />
                 )
             },
 

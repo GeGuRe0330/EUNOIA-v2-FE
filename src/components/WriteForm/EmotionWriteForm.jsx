@@ -30,7 +30,7 @@ const EmotionWriteForm = () => {
 
     return (
         <form onSubmit={handleSubmit} className="bg-surface p-6 rounded-xl shadow-md space-y-4">
-            <h2 className="text-xl font-bold">📝 감정 일기 쓰기</h2>
+            <h2 className="text-xl font-bold">감정 일기 쓰기</h2>
 
             <textarea
                 className="
