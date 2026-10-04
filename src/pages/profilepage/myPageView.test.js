@@ -31,6 +31,12 @@ describe("daysTogether", () => {
         expect(daysTogether("2028-02-28", leapNow)).toBe(3);
     });
 
+    it("서버가 주는 소수 초(DATETIME(6))가 붙은 가입 시각도 날짜 부분만 쓴다", () => {
+        expect(daysTogether("2026-10-02T09:00:00.123456", now)).toBe(1);
+        expect(daysTogether("2026-08-15T10:30:00.123456", now)).toBe(49);
+        expect(daysTogether("2026-10-01T23:59:59.999999", now)).toBe(2);
+    });
+
     it("날짜만 있는 문자열도 받는다", () => {
         expect(daysTogether("2026-10-01", now)).toBe(2);
     });

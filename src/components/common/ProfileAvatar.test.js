@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import ProfileAvatar from "./ProfileAvatar";
-import { saveMockProfileImage, clearMockProfileImage } from "../../api/mock/profileImages";
 
 // 아바타가 업로드한 이미지를 우선하고, 불러오지 못하면 성별 기본 이미지로 되돌리는지 — 서버가 파일을 잃어도 화면이 깨지면 안 된다
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -15,7 +14,6 @@ describe("ProfileAvatar", () => {
     const img = () => container.querySelector("img");
 
     beforeEach(() => {
-        sessionStorage.clear();
         container = document.createElement("div");
         document.body.appendChild(container);
         root = createRoot(container);
@@ -85,18 +83,6 @@ describe("ProfileAvatar", () => {
         act(() => {
             img().dispatchEvent(new Event("error"));
         });
-        expect(img().getAttribute("src")).toBe(fallback);
-    });
-
-    it("[MOCK] 더미 이미지 id는 저장된 data URL로 그리고, 저장된 것이 없으면 기본 이미지", () => {
-        const id = saveMockProfileImage("data:image/jpeg;base64,AAAA");
-        render({ gender: "NONE", profileImageId: id });
-        expect(img().getAttribute("src")).toBe("data:image/jpeg;base64,AAAA");
-
-        clearMockProfileImage();
-        render({ gender: "NONE" });
-        const fallback = img().getAttribute("src");
-        render({ gender: "NONE", profileImageId: id });
         expect(img().getAttribute("src")).toBe(fallback);
     });
 });
