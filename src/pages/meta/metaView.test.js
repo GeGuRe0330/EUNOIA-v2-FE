@@ -3,6 +3,10 @@ import {
     resolveGateStatus,
     isUsableGenerateResult,
     isSameResult,
+    isGenerating,
+    resolveGenerationOutcome,
+    GENERATE_FAILED_MESSAGE,
+    GENERATE_UNKNOWN_MESSAGE,
     formatDate,
     formatDateTime,
     excerptHistoryTitle,
@@ -134,5 +138,59 @@ describe("excerptHistoryTitle", () => {
         ["content가 undefined", undefined],
     ])("%s면 fallbackText를 쓴다", (_, content) => {
         expect(excerptHistoryTitle(content, "2026.08.30 ~ 2026.09.28")).toBe("2026.08.30 ~ 2026.09.28");
+    });
+});
+
+describe("isGenerating", () => {
+    it("generationStatus가 PROCESSING일 때만 참이다(status PREPARING/READY와 별개 축)", () => {
+        expect(isGenerating({ status: "READY", generationStatus: "PROCESSING" })).toBe(true);
+        expect(isGenerating({ status: "READY", generationStatus: "FAILED" })).toBe(false);
+        expect(isGenerating({ status: "READY", generationStatus: null })).toBe(false);
+        expect(isGenerating({ status: "READY" })).toBe(false);
+        expect(isGenerating(null)).toBe(false);
+    });
+});
+
+describe("resolveGenerationOutcome", () => {
+    const content = { outer: { summary: "요약" } };
+    const previous = { status: "READY", content, updatedAt: "2026-10-05T10:00:00", generationStatus: null };
+
+    it("새 결과(updatedAt이 다름)면 ready, sameResult false", () => {
+        const latest = { status: "READY", content, updatedAt: "2026-10-06T09:00:00", generationStatus: null };
+        expect(resolveGenerationOutcome(previous, latest)).toEqual({ name: "ready", sameResult: false });
+    });
+
+    it("같은 행이 그대로 돌아오면(updatedAt 동일) ready, sameResult true", () => {
+        expect(resolveGenerationOutcome(previous, { ...previous })).toEqual({ name: "ready", sameResult: true });
+    });
+
+    it("오늘 첫 생성(이전 결과 없음)도 ready — 같은 결과가 아니다", () => {
+        const latest = { status: "READY", content, updatedAt: "2026-10-06T09:00:00", generationStatus: null };
+        expect(resolveGenerationOutcome({ status: "READY", content: null, updatedAt: null }, latest)).toEqual({
+            name: "ready",
+            sameResult: false,
+        });
+    });
+
+    it("FAILED는 서버 고정 문구를 그대로 담아 failed로 — 이전 결과(content)가 있어도 성공으로 보지 않는다", () => {
+        const latest = { ...previous, generationStatus: "FAILED", generationReason: "메타분석 생성에 실패했어요." };
+        expect(resolveGenerationOutcome(previous, latest)).toEqual({ name: "failed", message: "메타분석 생성에 실패했어요." });
+    });
+
+    it("FAILED인데 문구가 비어 있으면 기본 문구", () => {
+        const latest = { ...previous, generationStatus: "FAILED", generationReason: null };
+        expect(resolveGenerationOutcome(previous, latest)).toEqual({ name: "failed", message: GENERATE_FAILED_MESSAGE });
+    });
+
+    it("READY인데 content가 없으면(생성이 끝났다는데 결과 없음) 계약 위반으로 invalid", () => {
+        const latest = { status: "READY", content: null, updatedAt: null, generationStatus: null };
+        expect(resolveGenerationOutcome(previous, latest)).toEqual({ name: "invalid", message: GENERATE_FAILED_MESSAGE });
+    });
+
+    it.each([
+        ["알려지지 않은 status", { status: "SOMETHING", generationStatus: null }],
+        ["null", null],
+    ])("%s는 invalid(fail-closed)", (_, latest) => {
+        expect(resolveGenerationOutcome(previous, latest)).toEqual({ name: "invalid", message: GENERATE_UNKNOWN_MESSAGE });
     });
 });
