@@ -53,7 +53,8 @@ describe("EntryDetailPage", () => {
 
     const entry = { id: 84, memberId: 7, content: "오늘은 힘든 하루였다.", entryDate: "2026-10-12" };
     const notFound = { status: 404, message: "존재하지 않는 감정글이에요.", fieldErrors: [] };
-    const noAnalysis = { status: 404, message: "아직 분석 결과가 없어요.", fieldErrors: [] };
+    const noAnalysis = { status: 404, message: "분석 결과를 찾을 수 없어요.", fieldErrors: [] };
+    const processing = { entryId: 84, status: "PROCESSING", emotionDetected: null, keywords: null, reason: null, warmMessages: null };
 
     beforeEach(() => {
         vi.mocked(getEmotionEntry).mockReset();
@@ -83,15 +84,26 @@ describe("EntryDetailPage", () => {
             expect(button("삭제")).toBeUndefined();
         });
 
-        it("일기는 있고 분석이 아직 없으면(404) 원문과 '처리 중' 분석 영역이 보인다", async () => {
+        it("일기는 있고 분석이 처리 중이면(200 + PROCESSING) 원문과 '처리 중' 분석 영역이 보인다", async () => {
             vi.mocked(getEmotionEntry).mockResolvedValue(entry);
-            vi.mocked(getAnalysisByEntry).mockRejectedValue(noAnalysis);
+            vi.mocked(getAnalysisByEntry).mockResolvedValue(processing);
 
             await render();
 
             expect(text()).toContain("오늘은 힘든 하루였다.");
             expect(text()).toContain(ANALYSIS_HINTS.processing);
             expect(button("삭제")).toBeDefined();
+        });
+
+        it("일기는 있는데 분석이 404(진짜 없음)면 '처리 중'이 아니라 조회 오류(접힌 머리글에 '불러오지 못했어요')로 그린다", async () => {
+            vi.mocked(getEmotionEntry).mockResolvedValue(entry);
+            vi.mocked(getAnalysisByEntry).mockRejectedValue(noAnalysis);
+
+            await render();
+
+            expect(text()).toContain("오늘은 힘든 하루였다.");
+            expect(text()).not.toContain(ANALYSIS_HINTS.processing);
+            expect(text()).toContain(ANALYSIS_HINTS.error);
         });
 
         it("남의 글(403)은 서버 문구를 그대로 보이고 분석 영역은 없다", async () => {
@@ -116,7 +128,7 @@ describe("EntryDetailPage", () => {
     describe("삭제", () => {
         beforeEach(() => {
             vi.mocked(getEmotionEntry).mockResolvedValue(entry);
-            vi.mocked(getAnalysisByEntry).mockRejectedValue(noAnalysis);
+            vi.mocked(getAnalysisByEntry).mockResolvedValue(processing);
         });
 
         const openConfirm = async () => {

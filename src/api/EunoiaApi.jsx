@@ -17,7 +17,7 @@ export const getEmotionScores = async () => {
     return unwrap(res);
 };
 
-// 일기별 분석 결과 조회(폴링용) — 처리 중이면 404("아직 분석 결과가 없어요."), 완료되면 200(status SUCCESS | FAILED)
+// 일기별 분석 결과 조회(폴링용) — 처리 중은 200 + status PROCESSING, 끝나면 SUCCESS | FAILED, 없는 글·삭제된 글은 404("분석 결과를 찾을 수 없어요.", 백엔드 ㉑)
 // 삭제된 글의 분석도 404 — 상세 화면은 일기 단건 조회의 404("없는 글")를 먼저 처리하므로 그 화면에서는 보이지 않는다
 export const getAnalysisByEntry = async (entryId) => {
     const res = await api.get(`${ANALYSIS_PREFIX}/by-entry/${entryId}`);
@@ -42,7 +42,8 @@ export const getMetaLatest = async () => {
     return unwrap(res);
 };
 
-// 메타 분석 생성 — 선택된 일기 집합이 직전 결과와 같으면 서버가 GPT 호출 없이 기존 결과를 그대로 돌려줌(updatedAt 동일)
+// 메타 분석 생성 접수(백엔드 ㉒) — 작업을 접수하면 202 + generationStatus PROCESSING(결과는 getMetaLatest 폴링으로),
+// 접수할 작업이 없으면(기록 부족·선택된 일기 집합이 직전 결과와 같음) 200 + 기존 결과(updatedAt 동일). unwrap은 상태 코드를 보지 않아 둘 다 통과
 export const generateMeta = async () => {
     const res = await api.post(`${META_PREFIX}`);
     return unwrap(res);

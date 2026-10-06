@@ -39,17 +39,16 @@ export const splitKeywords = (keywords) => {
 };
 
 // 분석 조회 결과 → 분석 영역에 그릴 상태 (한 일기당 분석은 0개 또는 1개)
-//  입력: { kind: "processing" }(404 = 아직 처리 중) | { kind: "ready", analysis }(200)
-//  processing: 아직 분석 중 — 안내와 [다시 확인]
+//  입력: { kind: "ready", analysis }(200) — 처리 중도 200이라 analysis.status로 구분한다(404는 오류라 여기까지 오지 않음)
+//  processing: status PROCESSING — 아직 분석 중, 안내와 [다시 확인]. 내용 필드는 전부 null이라 카드를 그리면 안 됨
 //  failed:     서버가 확정한 실패(종료 상태, 재시도 없음). FAILED 응답은 reason 외 필드가 전부 null이라 카드를 그리면 안 됨
 //  ready:      SUCCESS — 카드에 쓸 값으로 정리(비어 있는 값은 null이라 그 카드를 그리지 않음)
 //  invalid:    알려지지 않은 status 등 계약 위반 — 불완전한 데이터를 카드에 넘기지 않음(④번과 같은 fail-closed)
 export const resolveAnalysisView = (result) => {
-    if (result?.kind === "processing") return { name: "processing" };
-
     const analysis = result?.analysis;
     if (result?.kind !== "ready" || analysis == null) return { name: "invalid" };
 
+    if (analysis.status === "PROCESSING") return { name: "processing" };
     if (analysis.status === "FAILED") {
         return { name: "failed", reason: textOrNull(analysis.reason) ?? FAILED_DEFAULT_REASON };
     }

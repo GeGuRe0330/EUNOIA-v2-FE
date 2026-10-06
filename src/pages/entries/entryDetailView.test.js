@@ -123,8 +123,13 @@ describe("resolveAnalysisView", () => {
         warmMessages: ["하나", "둘", "셋"],
     };
 
-    it("404(처리 중)는 processing이다", () => {
-        expect(resolveAnalysisView({ kind: "processing" })).toEqual({ name: "processing" });
+    it("PROCESSING(200)은 processing이다 — 내용 필드가 전부 null이어도 카드를 그리지 않는다", () => {
+        const processing = { entryId: 84, status: "PROCESSING", emotionDetected: null, keywords: null, reason: null, warmMessages: null };
+        expect(resolveAnalysisView({ kind: "ready", analysis: processing })).toEqual({ name: "processing" });
+    });
+
+    it("옛 계약의 { kind: \"processing\" }(404 변환)은 더 이상 처리 중이 아니라 계약 위반(invalid)이다", () => {
+        expect(resolveAnalysisView({ kind: "processing" })).toEqual({ name: "invalid" });
     });
 
     it("SUCCESS는 카드에 쓸 값으로 정리한다", () => {
@@ -194,7 +199,7 @@ describe("resolveAnalysisView", () => {
     });
 
     it.each([
-        ["알려지지 않은 status", { kind: "ready", analysis: { status: "PROCESSING" } }],
+        ["알려지지 않은 status", { kind: "ready", analysis: { status: "PENDING" } }],
         ["소문자 status(계약 위반)", { kind: "ready", analysis: { status: "success" } }],
         ["status 없음", { kind: "ready", analysis: {} }],
         ["분석 본문이 null", { kind: "ready", analysis: null }],
