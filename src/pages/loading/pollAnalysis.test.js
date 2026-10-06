@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { POLL_INTERVAL_MS, POLL_TIMEOUT_MS, UNKNOWN_STATUS_MESSAGE, pollAnalysis } from "./pollAnalysis";
 
-const pending = { status: 404, message: "아직 분석 결과가 없어요.", fieldErrors: [] };
+const processing = { entryId: 1, status: "PROCESSING", reason: null, warmMessages: null };
+const notFound = { status: 404, message: "분석 결과를 찾을 수 없어요.", fieldErrors: [] };
 const success = { entryId: 1, status: "SUCCESS", reason: null, warmMessages: ["a", "b", "c"] };
 const failed = { entryId: 1, status: "FAILED", reason: "감정 분석에 실패했어요.", warmMessages: null };
 
 const INTERVAL = 2000;
 const TIMEOUT = 10000;
+// 간격 계산(백오프·지터)은 pollUntil.test.js가 맡으므로 여기선 고정 간격(factor 1, jitter 0)으로 흐름만 본다
 const run = (fetchAnalysis, signal) =>
-    pollAnalysis({ fetchAnalysis, intervalMs: INTERVAL, timeoutMs: TIMEOUT, signal });
+    pollAnalysis({ fetchAnalysis, intervalMs: INTERVAL, timeoutMs: TIMEOUT, factor: 1, jitter: 0, signal });
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -21,10 +23,10 @@ describe("pollAnalysis", () => {
         expect(fetchAnalysis).toHaveBeenCalledTimes(1);
     });
 
-    it("404(처리 중)는 interval마다 다시 조회하고, 결과가 나오면 끝난다", async () => {
+    it("PROCESSING이면 interval마다 다시 조회하고, 결과가 나오면 끝난다", async () => {
         const fetchAnalysis = vi.fn()
-            .mockRejectedValueOnce(pending)
-            .mockRejectedValueOnce(pending)
+            .mockResolvedValueOnce(processing)
+            .mockResolvedValueOnce(processing)
             .mockResolvedValue(success);
 
         const promise = run(fetchAnalysis);
@@ -51,8 +53,8 @@ describe("pollAnalysis", () => {
         expect(fetchAnalysis).toHaveBeenCalledTimes(1); // FAILED는 종료 상태 — 더 기다리지 않음
     });
 
-    it("상한까지 계속 404면 실패가 아니라 timeout으로 끝난다", async () => {
-        const fetchAnalysis = vi.fn().mockRejectedValue(pending);
+    it("상한까지 계속 PROCESSING이면 실패가 아니라 timeout으로 끝난다", async () => {
+        const fetchAnalysis = vi.fn().mockResolvedValue(processing);
 
         const promise = run(fetchAnalysis);
         await vi.advanceTimersByTimeAsync(TIMEOUT);
@@ -62,6 +64,7 @@ describe("pollAnalysis", () => {
     });
 
     it.each([
+        ["404 진짜 없음(없는 글·삭제된 글)", notFound],
         ["401 세션 만료", { status: 401, message: "로그인이 필요해요.", fieldErrors: [] }],
         ["403 남의 글", { status: 403, message: "해당 분석 결과에 대한 접근 권한이 없어요.", fieldErrors: [] }],
         ["500 서버 오류", { status: 500, message: "서버에 오류가 발생했어요.", fieldErrors: [] }],
@@ -73,9 +76,9 @@ describe("pollAnalysis", () => {
         expect(fetchAnalysis).toHaveBeenCalledTimes(1);
     });
 
-    it("처리 중(404)을 기다리다 진짜 오류가 나면 거기서 throw한다", async () => {
+    it("PROCESSING을 기다리다 오류가 나면 거기서 throw한다", async () => {
         const serverError = { status: 500, message: "서버에 오류가 발생했어요.", fieldErrors: [] };
-        const fetchAnalysis = vi.fn().mockRejectedValueOnce(pending).mockRejectedValue(serverError);
+        const fetchAnalysis = vi.fn().mockResolvedValueOnce(processing).mockRejectedValue(serverError);
 
         const promise = run(fetchAnalysis);
         const assertion = expect(promise).rejects.toBe(serverError);
@@ -90,7 +93,7 @@ describe("pollAnalysis", () => {
         ["PENDING(계약에 없는 값)", { entryId: 1, status: "PENDING" }],
         ["SOMETHING_NEW(새로 생긴 값)", { entryId: 1, status: "SOMETHING_NEW" }],
         ["응답 본문이 비어 있음(null)", null],
-    ])("알려진 상태(SUCCESS/FAILED)만 인정한다 — %s는 성공으로 넘기지 않고 오류로 던진다", async (_, response) => {
+    ])("알려진 상태(PROCESSING/SUCCESS/FAILED)만 인정한다 — %s는 성공으로 넘기지 않고 오류로 던진다", async (_, response) => {
         const fetchAnalysis = vi.fn().mockResolvedValue(response);
 
         await expect(run(fetchAnalysis)).rejects.toThrow(UNKNOWN_STATUS_MESSAGE);
@@ -99,7 +102,7 @@ describe("pollAnalysis", () => {
 
     it("대기 중 취소하면 다음 조회 없이 cancelled로 끝난다", async () => {
         const controller = new AbortController();
-        const fetchAnalysis = vi.fn().mockRejectedValue(pending);
+        const fetchAnalysis = vi.fn().mockResolvedValue(processing);
 
         const promise = run(fetchAnalysis, controller.signal);
         await vi.advanceTimersByTimeAsync(0);
@@ -137,10 +140,10 @@ describe("pollAnalysis — 화면과 같은 호출 형태(interval/timeout 생�
         expect(POLL_TIMEOUT_MS).toBe(90_000);
     });
 
-    it("첫 조회는 즉시, 2초 전까지는 추가 조회가 없고, 2초에 두 번째 조회를 한다", async () => {
-        const fetchAnalysis = vi.fn().mockRejectedValue(pending);
+    it("첫 조회는 즉시, 두 번째는 2초 뒤에 한다(지터 0일 때)", async () => {
+        const fetchAnalysis = vi.fn().mockResolvedValue(processing);
 
-        const promise = pollAnalysis({ fetchAnalysis }); // interval/timeout 생략
+        const promise = pollAnalysis({ fetchAnalysis, random: () => 0.5 }); // 지터 0이 되는 값
         await vi.advanceTimersByTimeAsync(0);
         expect(fetchAnalysis).toHaveBeenCalledTimes(1);
 
@@ -150,22 +153,19 @@ describe("pollAnalysis — 화면과 같은 호출 형태(interval/timeout 생�
         await vi.advanceTimersByTimeAsync(1);
         expect(fetchAnalysis).toHaveBeenCalledTimes(2);
 
-        await vi.advanceTimersByTimeAsync(POLL_TIMEOUT_MS); // 정리: 상한까지 흘려 종료
+        await vi.advanceTimersByTimeAsync(POLL_TIMEOUT_MS + 5_000); // 정리: 상한(+마지막 대기)까지 흘려 종료
         await promise;
     });
 
-    it("계속 처리 중이면 90초에 timeout — 조회는 0, 2, 4 ... 90초로 46번", async () => {
-        const fetchAnalysis = vi.fn().mockRejectedValue(pending);
+    it("계속 처리 중이면 90초가 지난 첫 조회 뒤에 timeout — 간격이 늘어나 조회 수는 고정 간격(46번)보다 적다", async () => {
+        const fetchAnalysis = vi.fn().mockResolvedValue(processing);
 
-        const promise = pollAnalysis({ fetchAnalysis }); // interval/timeout 생략
-        await vi.advanceTimersByTimeAsync(POLL_TIMEOUT_MS - 1);
-        let settled = false;
-        promise.then(() => { settled = true; });
-        await vi.advanceTimersByTimeAsync(0);
-        expect(settled).toBe(false); // 89.999초까지는 계속 기다림
+        const promise = pollAnalysis({ fetchAnalysis, random: () => 0.5 });
+        await vi.advanceTimersByTimeAsync(POLL_TIMEOUT_MS + 5_000);
 
-        await vi.advanceTimersByTimeAsync(1);
         await expect(promise).resolves.toEqual({ kind: "timeout" });
-        expect(fetchAnalysis).toHaveBeenCalledTimes(POLL_TIMEOUT_MS / POLL_INTERVAL_MS + 1);
+        // 2, 3, 4.5, 5, 5, ... 초 간격 → 90초 안에 약 20번
+        expect(fetchAnalysis.mock.calls.length).toBeGreaterThan(15);
+        expect(fetchAnalysis.mock.calls.length).toBeLessThan(POLL_TIMEOUT_MS / POLL_INTERVAL_MS + 1);
     });
 });

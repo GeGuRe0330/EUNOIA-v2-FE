@@ -4,10 +4,13 @@ import CardMotion from "../../components/motion/CardMotion";
 import EunoiaPageLinkButton from "../../components/common/EunoiaPageLinkButton";
 import { getMetaLatest, generateMeta, getMetaHistory } from "../../api/EunoiaApi";
 import { useApiError } from "../../hooks/useApiError";
+import { pollMetaGeneration } from "./pollMetaGeneration";
 import {
     resolveGateStatus,
-    isUsableGenerateResult,
-    isSameResult,
+    isGenerating,
+    resolveGenerationOutcome,
+    GENERATE_FAILED_MESSAGE,
+    GENERATE_TIMEOUT_MESSAGE,
     formatDate,
     formatDateTime,
     excerptHistoryTitle,
@@ -149,42 +152,54 @@ const MetaAnalysisPage = () => {
     const activeUpdatedAt = viewingHistory ? viewingHistory.updatedAt : data?.updatedAt;
     const activeBasedOnCount = viewingHistory ? viewingHistory.basedOnCount : data?.currentCount;
 
-    // 언마운트 가드
+    // 언마운트 가드 + 진행 중인 폴링 취소(화면 이탈) — 서버는 탭과 무관하게 계속 처리한다
     const mountedRef = useRef(true);
+    const pollAbortRef = useRef(null);
     useEffect(() => {
+        mountedRef.current = true;
         return () => {
             mountedRef.current = false;
+            pollAbortRef.current?.abort();
         };
     }, []);
 
-    // Gate에서 "분석 시작하기" 눌렀을 때
-    const handleStartAnalysis = async () => {
-        if (!isReady) return;
-        if (isUpserting) return;
+    // 생성이 끝날 때까지 GET /latest 폴링 → 끝난 latest를 결과로(previous는 폴링 전 결과 — 같은 결과 판별용).
+    // "분석 시작하기"(POST 202)와 진입 시 이미 PROCESSING인 경우가 함께 쓴다
+    const waitForGeneration = async (previous) => {
+        pollAbortRef.current?.abort();
+        const controller = new AbortController();
+        pollAbortRef.current = controller;
+
+        setIsUpserting(true);
+        setGenerateError(null);
+        setStep("LOADING"); // 여기서 "로딩 페이지"가 화면에 보임
+        window.scrollTo({ top: 0, behavior: "smooth" });
 
         try {
-            setIsUpserting(true);
-            setGenerateError(null);
+            const polled = await pollMetaGeneration({ fetchLatest: getMetaLatest, signal: controller.signal });
+            if (polled.kind === "cancelled" || !mountedRef.current) return;
 
-            // ✅ 로딩 스텝으로 전환(여기서 "로딩 페이지"가 화면에 보임)
-            setStep("LOADING");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-
-            // ✅ 서버 분석 생성/갱신
-            const updated = await generateMeta();
-
-            if (!mountedRef.current) return;
-
-            // 드문 방어 케이스 — 생성 응답이 READY인데 content가 없는 등 계약을 벗어나면 준비 화면으로 복귀
-            if (!isUsableGenerateResult(updated)) {
-                setGenerateError("분석 결과를 만들지 못했어요. 다시 시도해 주세요.");
+            // 최대 대기 초과 — 실패가 아님(서버는 계속 처리). 준비 화면으로 돌아가 안내하고, 다시 들어오면 이어서 폴링한다
+            if (polled.kind === "timeout") {
+                setGenerateError(GENERATE_TIMEOUT_MESSAGE);
                 setStep("GATE");
                 return;
             }
 
-            // 재생성 가드 — 선택된 일기 집합이 이전과 같으면 서버가 GPT 호출 없이 기존 결과를 그대로 돌려줌
-            setSameResultNotice(isSameResult(data, updated));
-            setData(updated);
+            const latest = polled.value;
+            const outcome = resolveGenerationOutcome(previous, latest);
+
+            if (outcome.name !== "ready") {
+                // 실패·계약 위반 — 준비 화면으로 복귀, 다시 누르면 새 시도(백엔드 §17). 실패 시엔 이전 결과가 담긴 latest로 갱신
+                if (outcome.name === "failed") setData(latest);
+                setGenerateError(outcome.message);
+                setStep("GATE");
+                return;
+            }
+
+            // 재생성 가드 — 선택된 일기 집합이 이전과 같으면 서버가 새로 만들지 않고 기존 결과(updatedAt 동일)를 그대로 돌려줌
+            setSameResultNotice(outcome.sameResult);
+            setData(latest);
             setViewingHistory(null); // 방금 생성한 최신 결과를 보여줄 차례 — 지난 분석을 보던 중이었다면 정리
 
             // ✅ 지난 분석 목록 갱신(응답을 기다리지 않음 — 부가 정보라 화면 전환을 막을 필요 없음)
@@ -201,14 +216,77 @@ const MetaAnalysisPage = () => {
                 return;
             }
 
-            setGenerateError(err?.message ?? "분석 생성에 실패했어요.");
+            setGenerateError(err?.message ?? GENERATE_FAILED_MESSAGE);
             setStep("GATE"); // 실패 시 다시 준비 화면으로
         } finally {
-            if (mountedRef.current) {
+            if (mountedRef.current && pollAbortRef.current === controller) {
                 setIsUpserting(false);
             }
         }
     };
+
+    // Gate에서 "분석 시작하기" 눌렀을 때 — POST는 작업만 접수(202)하고, 결과는 /latest 폴링으로 받는다
+    const handleStartAnalysis = async () => {
+        if (!isReady) return;
+        if (isUpserting) return;
+
+        let delegated = false; // 폴링으로 넘기면 isUpserting 해제는 waitForGeneration이 맡는다
+        try {
+            setIsUpserting(true);
+            setGenerateError(null);
+            setStep("LOADING");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+
+            const posted = await generateMeta();
+            if (!mountedRef.current) return;
+
+            // 200(구성 동일·기록 부족 — 접수할 작업 없음)은 바로 결과 판정, 202(PROCESSING)는 폴링
+            if (isGenerating(posted)) {
+                delegated = true;
+                await waitForGeneration(data);
+                return;
+            }
+
+            const outcome = resolveGenerationOutcome(data, posted);
+            if (outcome.name !== "ready") {
+                setGenerateError(outcome.message);
+                setStep("GATE");
+                return;
+            }
+            setSameResultNotice(outcome.sameResult);
+            setData(posted);
+            setViewingHistory(null);
+            fetchHistory();
+            setStep("OUTER");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        } catch (err) {
+            if (!mountedRef.current) return;
+
+            if (err?.status === 401) {
+                handleApiError(err);
+                return;
+            }
+
+            setGenerateError(err?.message ?? "분석 생성에 실패했어요.");
+            setStep("GATE");
+        } finally {
+            if (mountedRef.current && !delegated) {
+                setIsUpserting(false);
+            }
+        }
+    };
+
+    // 진입 시 한 번 — 생성 중이면(눌러 놓고 다른 페이지에 갔다 온 경우 포함) 생성 중 화면에서 폴링을 이어가고,
+    // 오늘의 마지막 시도가 실패였으면 실패 안내를 보여준다(다시 누르면 새 시도)
+    const resumeCheckedRef = useRef(false);
+    useEffect(() => {
+        if (PageLoading || !data || resumeCheckedRef.current) return;
+        resumeCheckedRef.current = true;
+
+        if (isGenerating(data)) waitForGeneration(data);
+        else if (data.generationStatus === "FAILED") setGenerateError(data.generationReason || GENERATE_FAILED_MESSAGE);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- 진입 시 한 번만 실행(waitForGeneration은 매 렌더 새로 만들어짐)
+    }, [PageLoading, data]);
 
     const handleGoGate = () => {
         setViewingHistory(null); // GATE는 늘 최신 상태 기준 — 지난 분석을 보던 흔적을 남기지 않음
@@ -402,7 +480,7 @@ const MetaAnalysisPage = () => {
                                     <div className="space-y-3">
                                         {historyItems.map((item) => (
                                             <button
-                                                key={item.periodEnd}
+                                                key={item.id}
                                                 type="button"
                                                 onClick={() => handleViewHistoryItem(item)}
                                                 className="group w-full flex items-center justify-between gap-3 text-left rounded-2xl bg-white/45 hover:bg-white/65 transition-all duration-150 shadow-sm hover:shadow-md p-5 border-2 border-primary-dark/40 hover:border-primary-dark/70 cursor-pointer hover:-translate-y-0.5"

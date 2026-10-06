@@ -44,7 +44,7 @@ const BACK_BUTTON_CLASS =
 
 // 감정글 상세 — 원문이 주인공이고, 그 아래에 이 글 하나에 대한 분석(0개 또는 1개)을 곁들인다.
 // 일기와 분석은 따로 동시에 불러와서, 분석이 느리거나 실패해도 원문은 먼저·그대로 보인다.
-// 분석은 성공 / 실패(서버 문구, 재시도 없음) / 처리 중(404, [다시 확인]) / 조회 오류 / 계약 위반을 구분해 그린다.
+// 분석은 성공 / 실패(서버 문구, 재시도 없음) / 처리 중(200 + PROCESSING, [다시 확인]) / 조회 오류(분석 404 포함) / 계약 위반을 구분해 그린다.
 const EntryDetailPage = () => {
     const { id: idParam } = useParams();
     const id = parseEntryId(idParam);
@@ -59,15 +59,10 @@ const EntryDetailPage = () => {
         return getEmotionEntry(id);
     }, [id]);
 
-    // 404는 오류가 아니라 "아직 분석 중"이라는 정상 상태(백엔드 계약: 행 없음 = 처리 중). 그 외 오류는 그대로 던진다
+    // 처리 중은 200 + status PROCESSING으로 온다(백엔드 ㉑). 404는 "진짜 없음"이라 처리 중으로 보지 않고 조회 오류로 둔다
     const fetchAnalysis = useCallback(async () => {
         if (id === null) return null;
-        try {
-            return { kind: "ready", analysis: await getAnalysisByEntry(id) };
-        } catch (err) {
-            if (err?.status === 404) return { kind: "processing" };
-            throw err;
-        }
+        return { kind: "ready", analysis: await getAnalysisByEntry(id) };
     }, [id]);
 
     const entry = useAsyncSection(fetchEntry);
